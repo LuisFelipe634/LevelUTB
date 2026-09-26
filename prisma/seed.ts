@@ -21,8 +21,14 @@ const DEMO_CURRENT_SEMESTER = 6
 const SARA_CURRENT_SEMESTER = 8
 const ANGELA_CURRENT_SEMESTER = 3
 
-// Materias que el docente demo lleva en el periodo actual.
+// Materias donde se liga a los estudiantes en el periodo actual (ver
+// linkCurrentEnrollments). Las asignaciones del docente se derivan de las
+// matriculas vigentes, no de esta lista.
 const ASSIGNED_COURSE_CODES = ['H01A', 'M01A', 'C02A', 'C04A']
+
+// Unica materia del segundo docente, para comprobar el filtro por materia:
+// cualquier canje de otra materia no le debe aparecer.
+const SECOND_TEACHER_COURSE_CODE = 'C04A'
 
 // Materias que Juan Perez aprueba en el periodo actual para que la mision
 // "Aprobar 6 creditos este semestre" (verificacion automatica) se pueda completar.
@@ -281,17 +287,32 @@ async function main() {
   await seedSecondStudentHistory(sara.profileId, program.id)
 
   const angela = await createThirdStudent(program.id, secondPasswordHash)
+  await seedThirdStudentHistory(angela.profileId, program.id)
+  await approveCurrentCredits(juan.profileId)
+
+  // El docente recibe exactamente las materias donde hay alguien matriculado en
+  // el periodo vigente: es el mismo filtro que usa /api/rewards para decidir en
+  // qué materias se puede pedir un canje, así que son las únicas por las que le
+  // pueden llegar solicitudes por revisar. Se derivan después de sembrar las
+  // matrículas de los tres estudiantes para que ningún semestre quede fuera.
+  const currentCourses = await findCurrentCourses()
 
   const teacher = await createTeacherUser(passwordHash)
-  const assignedCourses = await assignTeacherCourses(teacher.profileId)
-  await linkCurrentEnrollments(assignedCourses, {
+  await assignTeacherCourses(teacher.profileId, currentCourses)
+
+  // Segundo docente con una sola materia, para probar que un docente que NO tiene
+  // asignada la materia del canje no lo ve en su lista de pendientes.
+  const secondTeacher = await createSecondTeacherUser(passwordHash)
+  await assignTeacherCourses(
+    secondTeacher.profileId,
+    currentCourses.filter((course) => course.code === SECOND_TEACHER_COURSE_CODE)
+  )
+
+  await linkCurrentEnrollments({
     juan: { id: juan.profileId },
     sara: { id: sara.profileId },
     angela: { id: angela.profileId },
   })
-
-  await seedThirdStudentHistory(angela.profileId, program.id)
-  await approveCurrentCredits(juan.profileId)
 
   console.log('✅ Cursos y estudiantes demo asignados al docente')
 
@@ -547,29 +568,70 @@ async function createTeacherUser(passwordHash: string) {
   return { email: user.email, profileId: requireProfile(user.teacherProfile, user.email).id }
 }
 
-async function assignTeacherCourses(teacherId: string) {
-  const assignedCourses = await prisma.course.findMany({
-    where: { code: { in: ASSIGNED_COURSE_CODES } },
-    orderBy: { code: 'asc' },
+async function createSecondTeacherUser(passwordHash: string) {
+  const user = await prisma.user.create({
+    data: {
+      email: 'docente2@utb.edu.co',
+      name: 'Carlos Ramírez',
+      passwordHash,
+      role: 'TEACHER',
+      teacherProfile: {
+        create: {
+          department: 'Ingeniería de Sistemas',
+          faculty: 'Facultad de Ingeniería',
+          profession: 'Ingeniero de Sistemas',
+          title: 'Docente acompañante',
+          isActive: true,
+        },
+      },
+    },
+    include: { teacherProfile: true },
   })
 
-  for (const course of assignedCourses) {
+  console.log('✅ Segundo docente creado:', user.email)
+  return { email: user.email, profileId: requireProfile(user.teacherProfile, user.email).id }
+}
+
+/**
+ * Materias con matrícula oficial y vigente (CURSANDO + UNIVERSITY en el periodo
+ * actual). Es el conjunto que /api/rewards ofrece para canjear, así que el que el
+ * docente necesita tener asignado para ver las solicitudes.
+ */
+async function findCurrentCourses() {
+  return prisma.course.findMany({
+    where: {
+      enrollments: {
+        some: { status: 'CURSANDO', source: 'UNIVERSITY', semesterCode: CURRENT_PERIOD },
+      },
+    },
+    select: { id: true, code: true },
+    orderBy: { code: 'asc' },
+  })
+}
+
+async function assignTeacherCourses(teacherId: string, courses: Array<{ id: string }>) {
+  for (const course of courses) {
     await prisma.teacherCourse.create({
       data: { teacherId, courseId: course.id, period: CURRENT_PERIOD },
     })
   }
 
-  return assignedCourses
+  console.log(`✅ Materias vigentes asignadas al docente: ${courses.length}`)
+  return courses
 }
 
 // Matrícula vigente y distribuida por curso (solo CURSANDO en periodo actual).
 // Cada estudiante queda ligado a una o dos materias, para que el filtro por
 // materia sea visible.
 async function linkCurrentEnrollments(
-  assignedCourses: Array<{ id: string; code: string }>,
   students: { juan: StudentProfileRef; sara: StudentProfileRef; angela: StudentProfileRef },
 ) {
   const { juan, sara, angela } = students
+  const assignedCourses = await prisma.course.findMany({
+    where: { code: { in: ASSIGNED_COURSE_CODES } },
+    select: { id: true, code: true },
+    orderBy: { code: 'asc' },
+  })
   const courseByCode = new Map(assignedCourses.map((course) => [course.code, course]))
   const enrollmentsByCourse: Array<{ code: string; student: StudentProfileRef | null }> = [
     { code: 'H01A', student: juan }, // H01A -> Juan Pérez

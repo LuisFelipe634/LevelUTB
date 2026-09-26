@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server"
+﻿import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { recordUserActivity, ACTIVITY_ACTIONS } from "@/lib/activity"
 import { requireRole, jsonUnauthorized, jsonForbidden } from "@/lib/session"
@@ -50,10 +50,14 @@ export async function GET() {
 
     const studentIds = studentProfiles.map((p) => p.userId)
 
-    // Obtener solicitudes de recompensa pendientes de esos estudiantes
+    // Obtener solicitudes de recompensa pendientes de esos estudiantes.
+    // courseId limitado a las materias asignadas: un docente solo ve los canjes
+    // de las materias que da. Si no, veria los canjes de sus estudiantes en
+    // materias de otros docentes (son los mismos estudiantes).
     const pendingRewards = await prisma.studentReward.findMany({
       where: {
         studentId: { in: studentIds },
+        courseId: { in: assignedCourseIds },
         status: "SOLICITADO"
       },
       include: {
@@ -83,10 +87,12 @@ export async function GET() {
       orderBy: { requestedAt: "asc" }
     })
 
-    // Obtener también las ya revisadas (historial)
+    // Obtener tambiÃ©n las ya revisadas (historial), igualmente limitadas a las
+    // materias asignadas para que el docente no vea revisiones de otros.
     const reviewedRewards = await prisma.studentReward.findMany({
       where: {
         studentId: { in: studentIds },
+        courseId: { in: assignedCourseIds },
         status: { in: ["APROBADO", "RECHAZADO"] as const }
       },
       include: {
@@ -177,7 +183,7 @@ export async function PATCH(request: Request) {
     const { studentRewardId, courseId, decision, comment } = body as { studentRewardId: string; courseId?: string; decision: "approve" | "reject"; comment?: string }
 
     if (!studentRewardId || !["approve", "reject"].includes(decision)) {
-      return NextResponse.json({ error: "Decisión inválida" }, { status: 400 })
+      return NextResponse.json({ error: "DecisiÃ³n invÃ¡lida" }, { status: 400 })
     }
 
     const studentReward = await prisma.studentReward.findUnique({
@@ -218,7 +224,7 @@ export async function PATCH(request: Request) {
     )
 
     if (courseId && !eligibleEnrollments.some((enrollment) => enrollment.courseId === courseId)) {
-      return NextResponse.json({ error: "El estudiante no está matriculado en ese curso asignado" }, { status: 403 })
+      return NextResponse.json({ error: "El estudiante no estÃ¡ matriculado en ese curso asignado" }, { status: 403 })
     }
 
     const isAssigned = eligibleEnrollments.length > 0
@@ -247,7 +253,7 @@ export async function PATCH(request: Request) {
           data: {
             userId: studentReward.studentId,
             title: "Recompensa aprobada",
-            message: `Tu solicitud para "${studentReward.reward.name}" fue aprobada por tu docente. Ya puedes usar la bonificación (válida por 30 días).`,
+            message: `Tu solicitud para "${studentReward.reward.name}" fue aprobada por tu docente. Ya puedes usar la bonificaciÃ³n (vÃ¡lida por 30 dÃ­as).`,
             type: "SOLICITUD_RECOMPENSA",
             link: "/recompensas"
           }
