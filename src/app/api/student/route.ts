@@ -6,6 +6,96 @@ import { normalizeMeritcoinStudentId } from "@/lib/meritcoin"
 import { recordDailyAcademicActivity } from "@/lib/activity"
 import { requireRole, jsonUnauthorized, jsonForbidden } from "@/lib/session"
 import { getAcademicSource, isExternalAcademicEnabled } from "@/lib/getAcademicSource"
+import type { AcademicEnrollment } from "@/lib/academicSource"
+
+type Resolved<T> = { value: T } | { error: NextResponse }
+
+type AcademicData = {
+  enrollments: AcademicEnrollment[]
+  academicHistory: {
+    grade: number | null
+    status?: string
+    source?: string
+    credits?: number
+    course?: { credits?: number }
+  }[]
+}
+
+type LevelRow = { number: number; name: string; minPoints: number }
+
+type LinkUpdate = { walletAddress?: string | null; meritcoinStudentId?: string | null }
+
+type StudentLink = { walletAddress: string | null; meritcoinStudentId: string | null }
+
+const WALLET_RE = /^0x[a-fA-F0-9]{40}$/
+
+// Sesión de estudiante: compartida por GET y PATCH para no duplicar el 401/403.
+async function requireStudentUserId(): Promise<{ userId: string } | { error: NextResponse }> {
+  const session = await requireRole("STUDENT")
+
+  if (session.error) {
+    return {
+      error: session.status === 401 ? jsonUnauthorized(session.error) : jsonForbidden(session.error),
+    }
+  }
+
+  const userId = session.data?.userId
+  if (!userId) {
+    return { error: jsonUnauthorized("No autorizado") }
+  }
+
+  return { userId }
+}
+
+async function recordTodayAcademicActivity(userId: string): Promise<void> {
+  const todayStart = new Date()
+  todayStart.setUTCHours(0, 0, 0, 0)
+
+  const todayActivity = await prisma.activity.findFirst({
+    where: { userId, action: "ACADEMIC_DAILY_ACTIVITY", createdAt: { gte: todayStart } },
+  })
+
+  if (!todayActivity) {
+    await recordDailyAcademicActivity(userId, "student_profile")
+  }
+}
+
+// Fuente académica desacoplada: si UNIVERSITY_API_ENABLED=true usa HTTP externa,
+// sino Prisma local. Si la externa no está disponible se corta con 503 en vez de
+// servir datos parciales.
+async function fetchExternalAcademicData(userId: string): Promise<Resolved<AcademicData | null>> {
+  if (!isExternalAcademicEnabled()) return { value: null }
+
+  try {
+    const source = getAcademicSource()
+    const data = await source.getStudentAcademicData(userId)
+    if (!data.profile) return { value: null }
+
+    return { value: { enrollments: data.profile.enrollments, academicHistory: [] } }
+  } catch (e) {
+    if (e instanceof Error && e.message === "EXTERNAL_API_UNAVAILABLE") {
+      return {
+        error: NextResponse.json({ error: "Fuente académica externa no disponible" }, { status: 503 }),
+      }
+    }
+    throw e
+  }
+}
+
+function resolveLevels(levels: LevelRow[], totalPoints: number) {
+  let currentLevel = levels[0]
+  let nextLevel = levels[1]
+
+  for (let i = levels.length - 1; i >= 0; i--) {
+    if (totalPoints >= levels[i].minPoints) {
+      currentLevel = levels[i]
+      nextLevel = levels[i + 1] || null
+      break
+    }
+  }
+
+  return { currentLevel, nextLevel }
+}
 
 export async function GET() {
   function currentPeriod() {
@@ -14,45 +104,15 @@ export async function GET() {
   }
 
   try {
-    const session = await requireRole("STUDENT")
+    const session = await requireStudentUserId()
+    if ("error" in session) return session.error
 
-    if (session.error) {
-      return session.status === 401 ? jsonUnauthorized(session.error) : jsonForbidden(session.error)
-    }
+    const userId = session.userId
+    await recordTodayAcademicActivity(userId)
 
-    const userId = session.data?.userId
-    if (!userId) {
-      return jsonUnauthorized("No autorizado")
-    }
-
-    const todayStart = new Date()
-    todayStart.setUTCHours(0, 0, 0, 0)
-    const todayActivity = await prisma.activity.findFirst({ where: { userId, action: "ACADEMIC_DAILY_ACTIVITY", createdAt: { gte: todayStart } } })
-    if (!todayActivity) {
-      await recordDailyAcademicActivity(userId, "student_profile")
-    }
-
-    // Fuente académica desacoplada: si UNIVERSITY_API_ENABLED=true usa HTTP externa, sino Prisma local
-    let externalAcademicFailed = false
-    let academicEnrollmentsData: { enrollments: import("@/lib/academicSource").AcademicEnrollment[]; academicHistory: { grade: number | null; status?: string; source?: string; credits?: number; course?: { credits?: number } }[] } | null = null
-
-    if (isExternalAcademicEnabled()) {
-      try {
-        const source = getAcademicSource()
-        const data = await source.getStudentAcademicData(userId as string)
-        if (data.profile) {
-          academicEnrollmentsData = { enrollments: data.profile.enrollments, academicHistory: [] }
-        }
-      } catch (e) {
-        if (e instanceof Error && e.message === "EXTERNAL_API_UNAVAILABLE") {
-          externalAcademicFailed = true
-        } else throw e
-      }
-    }
-
-    if (externalAcademicFailed) {
-      return NextResponse.json({ error: "Fuente académica externa no disponible" }, { status: 503 })
-    }
+    const external = await fetchExternalAcademicData(userId)
+    if ("error" in external) return external.error
+    const academicEnrollmentsData = external.value
 
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -107,16 +167,7 @@ export async function GET() {
       orderBy: { number: "asc" }
     })
 
-    let currentLevel = levels[0]
-    let nextLevel = levels[1]
-
-    for (let i = levels.length - 1; i >= 0; i--) {
-      if (totalPoints >= levels[i].minPoints) {
-        currentLevel = levels[i]
-        nextLevel = levels[i + 1] || null
-        break
-      }
-    }
+    const { currentLevel, nextLevel } = resolveLevels(levels, totalPoints)
 
     // Calcular misiones activas y completadas
     const activeMissions = user.missions.filter(
@@ -189,56 +240,103 @@ export async function GET() {
   }
 }
 
+// Un campo del vínculo viene "presente" si el cliente lo envió con valor.
+// "" y null significan "desvincular", así que no se validan.
+function isPresent(value: unknown): boolean {
+  return value !== undefined && value !== null && value !== ""
+}
+
+function validateLinkField(
+  value: unknown,
+  error: string,
+  isValid: (raw: string) => boolean
+): NextResponse | null {
+  if (!isPresent(value)) return null
+
+  if (typeof value !== "string" || !isValid(value.trim())) {
+    return NextResponse.json({ error }, { status: 400 })
+  }
+
+  return null
+}
+
+function buildLinkUpdate(walletAddress: unknown, meritcoinStudentId: unknown): LinkUpdate {
+  const data: LinkUpdate = {}
+
+  if (walletAddress !== undefined) {
+    data.walletAddress = !walletAddress ? null : (walletAddress as string).trim()
+  }
+  if (meritcoinStudentId !== undefined) {
+    data.meritcoinStudentId = !meritcoinStudentId
+      ? null
+      : normalizeMeritcoinStudentId(meritcoinStudentId as string)
+  }
+
+  return data
+}
+
+function isUniqueConstraintError(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code: string }).code === "P2002"
+  )
+}
+
+async function saveStudentLink(userId: string, data: LinkUpdate): Promise<Resolved<StudentLink>> {
+  try {
+    const profile = await prisma.studentProfile.update({
+      where: { userId },
+      data,
+      select: { walletAddress: true, meritcoinStudentId: true },
+    })
+
+    return {
+      value: { walletAddress: profile.walletAddress, meritcoinStudentId: profile.meritcoinStudentId },
+    }
+  } catch (error) {
+    // meritcoinStudentId es @unique: choca cuando otra cuenta ya lo usa.
+    if (isUniqueConstraintError(error)) {
+      return {
+        error: NextResponse.json(
+          { error: "Ese ID de Meritcoin (STU-x) ya está vinculado a otro estudiante" },
+          { status: 409 }
+        ),
+      }
+    }
+    throw error
+  }
+}
+
 // PATCH: Actualizar el vínculo con Meritcoin del estudiante
 // (wallet Ethereum y/o ID de estudiante en Meritcoin/Moodle)
 export async function PATCH(request: Request) {
   try {
-    const session = await requireRole("STUDENT")
+    const session = await requireStudentUserId()
+    if ("error" in session) return session.error
 
-    if (session.error) {
-      return session.status === 401 ? jsonUnauthorized(session.error) : jsonForbidden(session.error)
-    }
+    const { userId } = session
+    const body = (await request.json()) as { walletAddress?: unknown; meritcoinStudentId?: unknown }
+    const { walletAddress, meritcoinStudentId } = body
 
-    const userId = session.data?.userId
-    if (!userId) {
-      return jsonUnauthorized("No autorizado")
-    }
+    const invalidField =
+      validateLinkField(
+        walletAddress,
+        "Dirección de wallet inválida (formato 0x + 40 caracteres hexadecimales)",
+        (raw) => WALLET_RE.test(raw)
+      ) ??
+      validateLinkField(
+        meritcoinStudentId,
+        "ID de Meritcoin inválido (usa formato STU-3 o el número de Moodle)",
+        (raw) => normalizeMeritcoinStudentId(raw) !== null
+      )
+    if (invalidField) return invalidField
 
-    const body = await request.json()
-    const { walletAddress, meritcoinStudentId } = body as { walletAddress?: unknown; meritcoinStudentId?: unknown }
+    const saved = await saveStudentLink(userId, buildLinkUpdate(walletAddress, meritcoinStudentId))
+    if ("error" in saved) return saved.error
 
-    if (walletAddress !== undefined && walletAddress !== null && walletAddress !== "") {
-      if (typeof walletAddress !== "string" || !/^0x[a-fA-F0-9]{40}$/.test(walletAddress.trim())) {
-        return NextResponse.json({ error: "Dirección de wallet inválida (formato 0x + 40 caracteres hexadecimales)" }, { status: 400 })
-      }
-    }
-
-    if (meritcoinStudentId !== undefined && meritcoinStudentId !== null && meritcoinStudentId !== "") {
-      if (typeof meritcoinStudentId !== "string" || normalizeMeritcoinStudentId(meritcoinStudentId) === null) {
-        return NextResponse.json({ error: "ID de Meritcoin inválido (usa formato STU-3 o el número de Moodle)" }, { status: 400 })
-      }
-    }
-
-    const data: { walletAddress?: string | null; meritcoinStudentId?: string | null } = {}
-    if (walletAddress !== undefined) data.walletAddress = !walletAddress ? null : (walletAddress as string).trim()
-    if (meritcoinStudentId !== undefined) {
-      data.meritcoinStudentId = !meritcoinStudentId ? null : normalizeMeritcoinStudentId(meritcoinStudentId as string)
-    }
-
-    try {
-      const profile = await prisma.studentProfile.update({
-        where: { userId },
-        data,
-        select: { walletAddress: true, meritcoinStudentId: true },
-      })
-
-      return NextResponse.json({ walletAddress: profile.walletAddress, meritcoinStudentId: profile.meritcoinStudentId })
-    } catch (error) {
-      if (typeof error === "object" && error !== null && "code" in error && (error as { code: string }).code === "P2002") {
-        return NextResponse.json({ error: "Ese ID de Meritcoin (STU-x) ya está vinculado a otro estudiante" }, { status: 409 })
-      }
-      throw error
-    }
+    return NextResponse.json(saved.value)
   } catch (error) {
     console.error("Error updating wallet:", error)
     return NextResponse.json(
