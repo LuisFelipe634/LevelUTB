@@ -412,6 +412,52 @@ async function migrateSummaryMirrors(): Promise<void> {
 }
 
 /**
+ * Decide si un espejo local puede ser borrado por la reconciliación de
+ * syncMeritcoinBadges (la que consulta /summary y /students/{wallet}/badges).
+ *
+ * Los espejos MERIT-tpl-* son propiedad del sync por student_id (catálogo de
+ * plantillas + awards). /summary une los awards por student_wallet, así que un
+ * award válido cuya wallet no sea la del perfil NO aparece ahí: borrarlo desde
+ * este path perdería insignias legítimas que el otro path acaba de reflejar.
+ * Solo se reconcilian los espejos que este mismo path crea (MERIT-<tokenId> y
+ * MERIT-summary-*, legados de syncs anteriores).
+ */
+export function isReconcilableMirror(externalId: string | null | undefined): boolean {
+  if (!externalId?.startsWith("MERIT-")) return false
+  return !externalId.startsWith("MERIT-tpl-")
+}
+
+/**
+ * Prefijo de los espejos de plantilla. Distingue dos propietarios:
+ * - MERIT-tpl-*  → el sync por student_id (catálogo + awards)
+ * - MERIT-*      → el sync por wallet (/summary y flujo automático)
+ */
+const TEMPLATE_MIRROR_PREFIX = "MERIT-tpl-"
+
+function templateMirrorExternalId(templateId: string): string {
+  return `${TEMPLATE_MIRROR_PREFIX}${templateId}`
+}
+
+/** Invierte templateMirrorExternalId. null si el espejo no es de plantilla. */
+export function templateIdFromMirror(externalId: string | null | undefined): string | null {
+  if (!externalId?.startsWith(TEMPLATE_MIRROR_PREFIX)) return null
+  return externalId.slice(TEMPLATE_MIRROR_PREFIX.length) || null
+}
+
+/**
+ * Un award revocado O eliminado en Meritcoin tiene que perder la marca local,
+ * y este sync es el único dueño de las marcas sobre espejos MERIT-tpl-*.
+ * No aplica a los espejos del sync por wallet: esos los reconcilia él mismo.
+ */
+export function shouldDemarkTemplateMirror(
+  externalId: string | null | undefined,
+  activeTemplateIds: ReadonlySet<string>
+): boolean {
+  const templateId = templateIdFromMirror(externalId)
+  return templateId !== null && !activeTemplateIds.has(templateId)
+}
+
+/**
  * Refleja las insignias on-chain como insignias espejo locales.
  * - Los awards manuales (vía /summary) pertenecen a una plantilla: se marcan
  *   sobre el espejo de plantilla homónimo, sin crear tarjeta duplicada.
@@ -494,7 +540,7 @@ export async function syncMeritcoinBadges(
     include: { badge: true },
   })
   for (const row of meritRows) {
-    if (!row.badge.externalId?.startsWith("MERIT-")) continue
+    if (!isReconcilableMirror(row.badge.externalId)) continue
     if (!earnedNames.has(normName(row.badge.name))) {
       await prisma.studentBadge.delete({ where: { id: row.id } }).catch(() => undefined)
     }
@@ -678,13 +724,17 @@ export async function syncMeritcoinAwardsByStudentId(
   let synced = 0
   let walletImported = false
   const profile = await prisma.studentProfile.findUnique({ where: { userId } })
+  const activeTemplateIds = new Set<string>()
 
   for (const award of awards) {
-    if (asRecord(award as unknown)?.revoked) continue
     const template = award.template
     if (!template?.id || !template?.name) continue
 
-    const externalId = `MERIT-tpl-${template.id}`
+    // Un award revocado no se refleja; la limpieza la hace reconcileTemplateMirrors.
+    if (asRecord(award as unknown)?.revoked) continue
+    activeTemplateIds.add(template.id)
+
+    const externalId = templateMirrorExternalId(template.id)
     const description = [
       template.description,
       Array.isArray(template.criteria) && template.criteria.length > 0
@@ -726,7 +776,31 @@ export async function syncMeritcoinAwardsByStudentId(
     }
   }
 
+  await reconcileTemplateMirrors(userId, activeTemplateIds)
+
   return { synced, connected: true, walletImported }
+}
+
+/**
+ * Desmarca los espejos MERIT-tpl-* que Meritcoin ya no reporta como awards
+ * vigentes (revocados o eliminados). La tarjeta del catálogo se conserva; solo
+ * se borra la marca de "ganada", y solo si verifiedBy = MERITCOIN, para no pisar
+ * una insignia ganada en gamificación que comparta el mismo espejo.
+ *
+ * Se apoya en que acá se llegó con una respuesta real del backend: si el backend
+ * estuvo caído, getMeritcoinAwardsByStudentId devuelve null y la función retorna
+ * antes, con connected: false, sin tocar nada.
+ */
+async function reconcileTemplateMirrors(userId: string, activeTemplateIds: ReadonlySet<string>): Promise<void> {
+  const marked = await prisma.studentBadge.findMany({
+    where: { studentId: userId, verifiedBy: "MERITCOIN" },
+    include: { badge: { select: { externalId: true } } },
+  })
+
+  for (const row of marked) {
+    if (!shouldDemarkTemplateMirror(row.badge.externalId, activeTemplateIds)) continue
+    await prisma.studentBadge.delete({ where: { id: row.id } }).catch(() => undefined)
+  }
 }
 
 export type EmitResult =
