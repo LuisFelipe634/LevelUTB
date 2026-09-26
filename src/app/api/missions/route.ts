@@ -1,23 +1,49 @@
 import { NextResponse } from "next/server"
+import type { Mission, StudentMission } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
 import { getAverageGrade } from "@/lib/academic"
 import { verifyMission } from "@/lib/missionVerification"
 
+type StudentSession = { userId: string } | { error: NextResponse }
+type MissionContext = { mission: Mission; existingMission: StudentMission | null }
+type Resolved<T> = { value: T } | { error: NextResponse }
+
+// Sesión de estudiante: compartida por GET y POST para no duplicar el 401/403.
+async function requireStudentSession(): Promise<StudentSession> {
+  const session = await auth()
+
+  if (!session?.user?.id) {
+    return { error: NextResponse.json({ error: "No autorizado" }, { status: 401 }) }
+  }
+
+  if (session.user.role !== "STUDENT") {
+    return {
+      error: NextResponse.json(
+        { error: "Solo los estudiantes pueden gestionar misiones" },
+        { status: 403 }
+      ),
+    }
+  }
+
+  return { userId: session.user.id as string }
+}
+
+function devError(error: string, cause: unknown): NextResponse | null {
+  if (process.env.NODE_ENV !== "development") return null
+  return NextResponse.json(
+    { error, details: cause instanceof Error ? cause.message : String(cause) },
+    { status: 500 }
+  )
+}
+
 // GET: Obtener misiones del estudiante
 export async function GET() {
   try {
-    const session = await auth()
+    const session = await requireStudentSession()
+    if ("error" in session) return session.error
 
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
-    }
-
-    if (session.user.role !== "STUDENT") {
-      return NextResponse.json({ error: "Solo los estudiantes pueden gestionar misiones" }, { status: 403 })
-    }
-
-    const userId = session.user.id as string
+    const { userId } = session
 
     // Obtener perfil del estudiante
     const studentProfile = await prisma.studentProfile.findUnique({
@@ -105,67 +131,257 @@ export async function GET() {
   }
 }
 
+// Valida misión, nivel y asignación previa en el mismo orden que antes, para que
+// los errores respondan igual.
+async function loadMissionContext(
+  userId: string,
+  missionId: unknown
+): Promise<Resolved<MissionContext>> {
+  if (!missionId) {
+    return {
+      error: NextResponse.json({ error: "ID de misión requerido" }, { status: 400 })
+    }
+  }
+
+  // Verificar que la misión existe y está activa
+  const mission = await prisma.mission.findUnique({ where: { id: missionId as string } })
+  if (!mission || !mission.isActive) {
+    return {
+      error: NextResponse.json(
+        { error: "Misión no encontrada o inactiva" },
+        { status: 404 }
+      ),
+    }
+  }
+
+  // Verificar nivel del estudiante
+  const studentProfile = await prisma.studentProfile.findUnique({ where: { userId } })
+  if (!studentProfile) {
+    return { error: NextResponse.json({ error: "Perfil no encontrado" }, { status: 404 }) }
+  }
+
+  if (mission.requiredLevel && studentProfile.level < mission.requiredLevel) {
+    return {
+      error: NextResponse.json(
+        { error: "Nivel insuficiente para esta misión" },
+        { status: 403 }
+      ),
+    }
+  }
+
+  // Buscar si ya tiene esta misión
+  const existingMission = await prisma.studentMission.findUnique({
+    where: {
+      studentId_missionId: {
+        studentId: userId,
+        missionId: mission.id
+      }
+    }
+  })
+
+  return { value: { mission, existingMission } }
+}
+
+async function acceptMission(userId: string, mission: Mission): Promise<NextResponse> {
+  const studentMission = await prisma.studentMission.create({
+    data: {
+      studentId: userId,
+      missionId: mission.id,
+      status: "PENDIENTE",
+      progress: 0
+    }
+  })
+
+  // Crear notificación
+  await prisma.notification.create({
+    data: {
+      userId,
+      title: "Misión aceptada",
+      message: `Has aceptado la misión: ${mission.title}`,
+      type: "MISION_DISPONIBLE",
+      link: "/misiones"
+    }
+  })
+
+  return NextResponse.json({ studentMission })
+}
+
+// La metadata de arranque es una captura auxiliary: si falla, en produccion se
+// sigue con null, y solo en desarrollo se corta con 500.
+async function buildStartMetadataSafe(
+  mission: Mission,
+  userId: string
+): Promise<Resolved<string | null>> {
+  try {
+    return { value: await buildStartMetadata(mission, userId) }
+  } catch (metaError) {
+    console.error("Error en buildStartMetadata:", metaError)
+    const response = devError("Error al preparar la misión", metaError)
+    return response ? { error: response } : { value: null }
+  }
+}
+
+async function startMission(
+  userId: string,
+  mission: Mission,
+  existingMission: StudentMission | null
+): Promise<NextResponse> {
+  if (!existingMission || !["PENDIENTE", "RECHAZADA"].includes(existingMission.status)) {
+    return NextResponse.json(
+      { error: "No puedes iniciar esta misión" },
+      { status: 400 }
+    )
+  }
+
+  const metadata = await buildStartMetadataSafe(mission, userId)
+  if ("error" in metadata) return metadata.error
+
+  const studentMission = await prisma.studentMission.update({
+    where: { id: existingMission.id },
+    data: {
+      status: "EN_PROGRESO",
+      progress: 0,
+      completedAt: null,
+      evidence: null,
+      metadata: metadata.value,
+      verifiedBy: null,
+      verifiedAt: null,
+      reviewComment: null
+    }
+  })
+
+  return NextResponse.json({ studentMission })
+}
+
+// Verificación automática por regla académica. Sin autoVerify no hay mensaje.
+async function runAutoVerification(
+  mission: Mission,
+  userId: string,
+  metadata: string | null
+): Promise<Resolved<string | null>> {
+  if (!mission.autoVerify || !mission.verificationKey) return { value: null }
+
+  const verification = await verifyMission(mission, userId, metadata)
+  if (!verification.passed) {
+    return {
+      error: NextResponse.json(
+        {
+          error: "Tu misión aún no cumple la condición de verificación automática.",
+          message: verification.message,
+          progress: verification.progress
+        },
+        { status: 400 }
+      ),
+    }
+  }
+
+  return { value: verification.message }
+}
+
+function buildCompletionEvidence(
+  mission: Mission,
+  submittedEvidence: string | undefined,
+  verificationMessage: string | null
+): string | null {
+  if (!mission.autoVerify) return submittedEvidence ?? null
+  return verificationMessage
+    ? `Cumplimiento registrado automáticamente — ${verificationMessage}`
+    : "Cumplimiento registrado automáticamente"
+}
+
+async function persistCompletion(
+  userId: string,
+  mission: Mission,
+  existingMission: StudentMission,
+  evidence: string | null
+): Promise<StudentMission> {
+  return prisma.$transaction(async (transaction) => {
+    const completedMission = await transaction.studentMission.update({
+      where: { id: existingMission.id },
+      data: {
+        status: mission.autoVerify ? "COMPLETADA" : "EN_REVISION",
+        progress: 100,
+        completedAt: new Date(),
+        evidence
+      }
+    })
+
+    if (mission.autoVerify) {
+      await transaction.point.create({
+        data: {
+          userId,
+          amount: mission.pointsReward,
+          source: "MISION_COMPLETADA",
+          description: `Misión completada: ${mission.title}`
+        }
+      })
+    }
+
+    await transaction.notification.create({
+      data: {
+        userId,
+        title: mission.autoVerify ? "Misión completada" : "Misión enviada a revisión",
+        message: mission.autoVerify
+          ? `Completaste «${mission.title}» y ganaste ${mission.pointsReward} puntos.`
+          : `Tu evidencia para «${mission.title}» será revisada por un docente.`,
+        type: mission.autoVerify ? "LOGRO_OBTENIDO" : "INFO",
+        link: "/misiones"
+      }
+    })
+
+    return completedMission
+  })
+}
+
+async function completeMission(
+  userId: string,
+  mission: Mission,
+  existingMission: StudentMission,
+  evidence: unknown
+): Promise<NextResponse> {
+  if (existingMission.status !== "EN_PROGRESO") {
+    return NextResponse.json(
+      { error: "No puedes completar esta misión" },
+      { status: 400 }
+    )
+  }
+
+  const submittedEvidence =
+    typeof evidence === "string" ? evidence.trim() : existingMission.evidence?.trim()
+  if (!mission.autoVerify && !submittedEvidence) {
+    return NextResponse.json(
+      { error: "Debes adjuntar una evidencia antes de enviar la misión" },
+      { status: 400 }
+    )
+  }
+
+  const verification = await runAutoVerification(mission, userId, existingMission.metadata)
+  if ("error" in verification) return verification.error
+
+  const studentMission = await persistCompletion(
+    userId,
+    mission,
+    existingMission,
+    buildCompletionEvidence(mission, submittedEvidence, verification.value)
+  )
+
+  return NextResponse.json({ studentMission })
+}
+
 // POST: Aceptar/ejecutar una misión
 export async function POST(request: Request) {
   try {
-    const session = await auth()
+    const session = await requireStudentSession()
+    if ("error" in session) return session.error
 
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
-    }
-
-    if (session.user.role !== "STUDENT") {
-      return NextResponse.json({ error: "Solo los estudiantes pueden gestionar misiones" }, { status: 403 })
-    }
-
-    const userId = session.user.id as string
+    const { userId } = session
     const body = await request.json()
     const { missionId, action, evidence } = body
 
-    if (!missionId) {
-      return NextResponse.json(
-        { error: "ID de misión requerido" },
-        { status: 400 }
-      )
-    }
+    const context = await loadMissionContext(userId, missionId)
+    if ("error" in context) return context.error
 
-    // Verificar que la misión existe y está activa
-    const mission = await prisma.mission.findUnique({
-      where: { id: missionId }
-    })
-
-    if (!mission || !mission.isActive) {
-      return NextResponse.json(
-        { error: "Misión no encontrada o inactiva" },
-        { status: 404 }
-      )
-    }
-
-    // Verificar nivel del estudiante
-    const studentProfile = await prisma.studentProfile.findUnique({
-      where: { userId }
-    })
-
-    if (!studentProfile) {
-      return NextResponse.json({ error: "Perfil no encontrado" }, { status: 404 })
-    }
-
-    if (mission.requiredLevel && studentProfile.level < mission.requiredLevel) {
-      return NextResponse.json(
-        { error: "Nivel insuficiente para esta misión" },
-        { status: 403 }
-      )
-    }
-
-    // Buscar si ya tiene esta misión
-    const existingMission = await prisma.studentMission.findUnique({
-      where: {
-        studentId_missionId: {
-          studentId: userId,
-          missionId
-        }
-      }
-    })
+    const { mission, existingMission } = context.value
 
     if (action === "accept") {
       // Aceptar la misión
@@ -175,150 +391,21 @@ export async function POST(request: Request) {
           { status: 400 }
         )
       }
-
-      const studentMission = await prisma.studentMission.create({
-        data: {
-          studentId: userId,
-          missionId,
-          status: "PENDIENTE",
-          progress: 0
-        }
-      })
-
-      // Crear notificación
-      await prisma.notification.create({
-        data: {
-          userId,
-          title: "Misión aceptada",
-          message: `Has aceptado la misión: ${mission.title}`,
-          type: "MISION_DISPONIBLE",
-          link: "/misiones"
-        }
-      })
-
-      return NextResponse.json({ studentMission })
+      return acceptMission(userId, mission)
     }
 
     if (action === "start") {
-      // Iniciar la misión
-      if (!existingMission || !["PENDIENTE", "RECHAZADA"].includes(existingMission.status)) {
-        return NextResponse.json(
-          { error: "No puedes iniciar esta misión" },
-          { status: 400 }
-        )
-      }
-
-      let startMetadata: string | null = null
-      try {
-        startMetadata = await buildStartMetadata(mission, userId)
-      } catch (metaError) {
-        console.error("Error en buildStartMetadata:", metaError)
-        if (process.env.NODE_ENV === "development") {
-          return NextResponse.json(
-            { error: "Error al preparar la misión", details: metaError instanceof Error ? metaError.message : String(metaError) },
-            { status: 500 }
-          )
-        }
-      }
-
-      const studentMission = await prisma.studentMission.update({
-        where: { id: existingMission.id },
-        data: {
-          status: "EN_PROGRESO",
-          progress: 0,
-          completedAt: null,
-          evidence: null,
-          metadata: startMetadata,
-          verifiedBy: null,
-          verifiedAt: null,
-          reviewComment: null
-        }
-      })
-
-      return NextResponse.json({ studentMission })
+      return startMission(userId, mission, existingMission)
     }
 
     if (action === "complete") {
-      if (!existingMission || existingMission.status !== "EN_PROGRESO") {
+      if (!existingMission) {
         return NextResponse.json(
           { error: "No puedes completar esta misión" },
           { status: 400 }
         )
       }
-
-      const submittedEvidence = typeof evidence === "string" ? evidence.trim() : existingMission.evidence?.trim()
-      if (!mission.autoVerify && !submittedEvidence) {
-        return NextResponse.json(
-          { error: "Debes adjuntar una evidencia antes de enviar la misión" },
-          { status: 400 }
-        )
-      }
-
-      // Verificación automática por regla académica
-      let verificationMessage: string | null = null
-      if (mission.autoVerify && mission.verificationKey) {
-        const verification = await verifyMission(
-          mission,
-          userId,
-          existingMission.metadata
-        )
-
-        if (!verification.passed) {
-          return NextResponse.json(
-            {
-              error: "Tu misión aún no cumple la condición de verificación automática.",
-              message: verification.message,
-              progress: verification.progress
-            },
-            { status: 400 }
-          )
-        }
-
-        verificationMessage = verification.message
-      }
-
-      const studentMission = await prisma.$transaction(async (transaction) => {
-        const completedMission = await transaction.studentMission.update({
-          where: { id: existingMission.id },
-          data: {
-            status: mission.autoVerify ? "COMPLETADA" : "EN_REVISION",
-            progress: 100,
-            completedAt: new Date(),
-            evidence: mission.autoVerify
-              ? verificationMessage
-                ? `Cumplimiento registrado automáticamente — ${verificationMessage}`
-                : "Cumplimiento registrado automáticamente"
-              : submittedEvidence
-          }
-        })
-
-        if (mission.autoVerify) {
-          await transaction.point.create({
-            data: {
-              userId,
-              amount: mission.pointsReward,
-              source: "MISION_COMPLETADA",
-              description: `Misión completada: ${mission.title}`
-            }
-          })
-        }
-
-        await transaction.notification.create({
-          data: {
-            userId,
-            title: mission.autoVerify ? "Misión completada" : "Misión enviada a revisión",
-            message: mission.autoVerify
-              ? `Completaste «${mission.title}» y ganaste ${mission.pointsReward} puntos.`
-              : `Tu evidencia para «${mission.title}» será revisada por un docente.`,
-            type: mission.autoVerify ? "LOGRO_OBTENIDO" : "INFO",
-            link: "/misiones"
-          }
-        })
-
-        return completedMission
-      })
-
-      return NextResponse.json({ studentMission })
+      return completeMission(userId, mission, existingMission, evidence)
     }
 
     return NextResponse.json(
@@ -327,12 +414,8 @@ export async function POST(request: Request) {
     )
   } catch (error) {
     console.error("Error processing mission:", error)
-    if (process.env.NODE_ENV === "development") {
-      return NextResponse.json(
-        { error: "Error interno del servidor", details: error instanceof Error ? error.message : String(error) },
-        { status: 500 }
-      )
-    }
+    const response = devError("Error interno del servidor", error)
+    if (response) return response
     return NextResponse.json(
       { error: "Error interno del servidor" },
       { status: 500 }
@@ -357,4 +440,3 @@ async function buildStartMetadata(mission: { verificationKey: string | null }, u
   const initialAverage = getAverageGrade(profile.academicHistory, profile.enrollments, profile.averageGrade)
   return JSON.stringify({ initialAverage })
 }
-
