@@ -41,9 +41,6 @@ services:
     env_file: .env
     environment:
       DATABASE_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-utb_gamificacion}?schema=public"
-      # Meritcoin corre en otro compose: desde el contenedor, "localhost" seria
-      # el propio app. host.docker.internal resuelve al host de Docker Desktop.
-      MERITCOIN_API_URL: "http://host.docker.internal:8000"
       UNIVERSITY_API_URL: "http://external-academic-api:3001"
       NEXTAUTH_URL: "http://localhost:3000"
     command: sh -c "npm run db:push && npm run db:seed-if-empty && npm run dev"

@@ -213,7 +213,6 @@ async function createRegisteredUser(input: {
             totalCredits: 0,
             averageGrade: 0,
             level: 1,
-            // meritcoinStudentId queda NULL hasta vincular Moodle real (no auto STU-x)
           },
         },
       },

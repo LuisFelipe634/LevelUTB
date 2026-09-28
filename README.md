@@ -6,7 +6,7 @@ Plataforma gamificada para el seguimiento del avance académico de estudiantes d
 
 ## Descripción
 
-Sistema web donde el estudiante visualiza su progreso en la malla curricular, gana puntos e insignias, canjea recompensas académicas por puntos y recibe recomendaciones personalizadas. El docente acompaña a sus estudiantes por curso, verifica misiones con evidencia, aprueba canjes de recompensas y envía rutas recomendadas. Las insignias locales pueden emitirse on-chain a Meritcoin (ERC-1155) vinculando `STU-{id}` + wallet.
+Sistema web donde el estudiante visualiza su progreso en la malla curricular, gana puntos e insignias, canjea recompensas académicas por puntos y recibe recomendaciones personalizadas. El docente acompaña a sus estudiantes por curso, verifica misiones con evidencia, aprueba canjes de recompensas y envía rutas recomendadas.
 
 ---
 
@@ -39,12 +39,10 @@ Next.js App Router (src/app/layout.tsx -> AppShell -> Sidebar/Header)
   `-- /api/*: endpoints por rol STUDENT / TEACHER
        |
        v
-  src/lib/* (academic, recommendations, streak, activity, missionVerification, meritcoin)
-       |
-       v
+  src/lib/* (academic, recommendations, streak, activity, missionVerification)
+        |
+        v
   Prisma Client (src/lib/prisma.ts) -> PostgreSQL (22 modelos)
-       |
-       +--> Meritcoin FastAPI externo (solo insignias, via src/lib/meritcoin.ts)
 ```
 
 ### Capas del backend
@@ -54,23 +52,22 @@ Next.js App Router (src/app/layout.tsx -> AppShell -> Sidebar/Header)
 | Guard global | `src/middleware.ts` | Deja pasar `/login`, `/api/auth`, estáticos; si no hay cookie de sesión redirige a `/login?callbackUrl=...`. Cada API además valida JSON. |
 | Sesión/roles | `src/lib/auth.ts`, `src/lib/session.ts` | `auth()`, `requireRole("STUDENT"\|"TEACHER")`, `jsonUnauthorized`, `jsonForbidden`. Login solo `@utb.edu.co`. |
 | Rutas HTTP | `src/app/api/**/route.ts` | Validan entrada, rol y responden JSON. Ver `src/app/api/README.md`. |
-| Dominio | `src/lib/` | `academic.ts` (promedio, semestre actual, tope créditos), `recommendations.ts`, `streak.ts`, `activity.ts` (`ACTIVITY_ACTIONS`, racha diaria), `missionRules.ts` + `missionVerification.ts` (auto-verificación), `meritcoin.ts` (espejo + emisión on-chain). |
+| Dominio | `src/lib/` | `academic.ts` (promedio, semestre actual, tope créditos), `recommendations.ts`, `streak.ts`, `activity.ts` (`ACTIVITY_ACTIONS`, racha diaria), `missionRules.ts` + `missionVerification.ts` (auto-verificación). |
 | Persistencia | `src/lib/prisma.ts` | Singleton `PrismaClient` + `PrismaPg`. En dev se reutiliza vía `globalThis`. |
-| Modelo | `prisma/schema.prisma` | 22 modelos: usuarios, malla, progreso, gamificación, recompensas, notificaciones, riesgo, Meritcoin. |
-| Datos | `prisma/seed.ts`, `prisma/backfill-meritcoin-ids.ts` | Seed base (programa ISCO 2019, 10 semestres, 55 cursos, 162 créditos, niveles, misiones, badges, rewards + demo@utb.edu.co), backfill de `STU-{id}`. |
+| Modelo | `prisma/schema.prisma` | 22 modelos: usuarios, malla, progreso, gamificación, recompensas, notificaciones, riesgo. |
+| Datos | `prisma/seed.ts` | Seed base (programa ISCO 2019, 10 semestres, 55 cursos, 162 créditos, niveles, misiones, badges, rewards + demo@utb.edu.co). |
 
 ### Catálogo de APIs
 
 | Endpoint | Métodos | Rol | Función |
 |---|---|---|---|
 | `/api/auth/[...nextauth]` | GET, POST | público | Login/logout NextAuth Credentials. |
-| `/api/student` | GET, PATCH | STUDENT | GET perfil + stats + racha + insignias recientes (registra `ACADEMIC_DAILY_ACTIVITY`). PATCH `{ walletAddress, meritcoinStudentId }` para vínculo Meritcoin. |
+| `/api/student` | GET | STUDENT | Perfil + stats + racha + insignias recientes (registra `ACADEMIC_DAILY_ACTIVITY`). |
 | `/api/curriculum` | GET, POST | STUDENT | GET malla por semestre con estado (aprobado/en curso/bloqueado/disponible), prerrequisitos y créditos. POST selección de cursos del periodo. |
 | `/api/stats` | GET | STUDENT | Créditos aprobados/totales, promedio (`academic.ts`), avance por semestre, puntos/nivel, tendencia. |
 | `/api/missions` | GET, POST | STUDENT | GET disponibles (por `level`) + estado del estudiante. POST crear/avanzar con `evidence`; si `autoVerify` usa `missionVerification.ts`, si no queda `EN_REVISION`. |
 | `/api/rewards` | GET, POST | STUDENT | GET catálogo activo + puntos totales + canjes + cursos del periodo actual para elegir `courseId`. POST solicitar canje `{ rewardId, courseId }` (descuenta puntos, estado `SOLICITADO`). |
-| `/api/badges` | GET | STUDENT | Locales + espejo Meritcoin (`syncMeritcoinTemplates`, `syncMeritcoinBadges`, saldo MRT). |
-| `/api/badges/award` | POST | STUDENT | `{ badgeId }` emite insignia local ya ganada a Meritcoin on-chain. Exige `meritcoinStudentId` formato `STU-x` y wallet custodial (la provisiona si falta). |
+| `/api/badges` | GET | STUDENT | Catálogo de insignias locales con estado por estudiante + estadísticas agregadas (total, obtenidas, % y desglose por categoría). |
 | `/api/notifications` | GET, PATCH, DELETE | ambos | Listar, marcar leída (`isRead`), borrar. Tipos: `INFO, WARNING, ALERTA_RIESGO, LOGRO_OBTENIDO, MISION_DISPONIBLE, RECORDATORIO, SOLICITUD_RECOMPENSA`. |
 | `/api/recommendations` | GET, PATCH | STUDENT | GET genera bajo demanda con `generateRecommendations()`. PATCH aceptar/descartar (`isAccepted`, `isRead`). |
 | `/api/search` | GET `?q=` | ambos | Búsqueda global (cursos, misiones, insignias) insensible a tildes. |
@@ -91,11 +88,11 @@ Detalle de flujos y cómo añadir endpoints: ver `src/app/api/README.md`.
 - **Dashboard**: puntos, nivel, racha, misiones activas, logros recientes, notificaciones y alertas.
 - **Malla interactiva**: por semestre con estado por prerrequisitos, créditos aprobados vs totales y selección de materias del periodo.
 - **Misiones**: tipos `ACADEMICO, PLANIFICACION, MEJORA_CONTINUA, HABITO_ESTUDIO, IMPACTO_SOCIAL`. Manuales con evidencia + revisión docente, o automáticas (`verificationKey/Value`: créditos, promedio, racha) vía `missionVerification.ts`. Estados: `PENDIENTE → EN_PROGRESO → EN_REVISION → COMPLETADA/VERIFICADA/RECHAZADA`.
-- **Logros**: locales por progreso/rendimiento/hábito + espejo Meritcoin (`MERIT-<tokenId>`). Barra de progreso y saldo MRT.
+- **Logros**: insignias locales por progreso/rendimiento/hábito. Filtro por categoría y estado (obtenidas/bloqueadas) con barra de progreso.
 - **Recompensas**: canje de puntos por bonificaciones (`EXAMEN, ASISTENCIA, ENTREGA, OTRO`) atadas a un `courseId` del periodo actual. Flujo `SOLICITADO → APROBADO/RECHAZADO → USADO/EXPIRADO`. Página `/recompensas`.
 - **Recomendaciones**: cuello de botella, reprobadas, electivas, ruta del próximo semestre, promedio < 3.5, rellenar créditos.
 - **Estadísticas**: créditos, promedio, nivel, tendencia y distribución por semestre.
-- **Perfil**: datos académicos, vínculo Meritcoin (`wallet 0x...` + `STU-x`, estados `Sin vincular / ID vinculado sin wallet / Vinculado`), nivel e insignias recientes.
+- **Perfil**: datos académicos, nivel e insignias recientes.
 - **Responsive + modo claro/oscuro** (`next-themes`, `AppShell` + `Sidebar`/`Header`).
 
 ### Docentes (`/docentes`, `/perfil-docente`)
@@ -127,7 +124,7 @@ Detalle de flujos y cómo añadir endpoints: ver `src/app/api/README.md`.
 
 ### Insignias (`Badge.category`)
 
-`PROGRESO, RENDIMIENTO, HABITO, COMPETENCIA, IMPACTO_SOCIAL, MERITCOIN`. Las on-chain se espejan por `externalId = MERIT-<tokenId>`.
+`PROGRESO, RENDIMIENTO, HABITO, COMPETENCIA, IMPACTO_SOCIAL`.
 
 ### Misiones (`Mission.type`)
 
@@ -151,7 +148,7 @@ Motor `src/lib/recommendations.ts`: prerrequisitos que más desbloquean (alta), 
 
 ```text
 utb-gamificacion/
-  .env / .env.example        # DATABASE_URL, NEXTAUTH_SECRET/URL + MERITCOIN_* (ver Instalación)
+  .env / .env.example        # DATABASE_URL, NEXTAUTH_SECRET/URL (ver Instalación)
   setup.sh                   # Instalación automática (Node via nvm, Postgres, .env, db:push, seed)
   next.config.ts / tsconfig.json / eslint.config.mjs / postcss.config.mjs / prisma.config.ts
   public/utb-logotipo.png
@@ -160,7 +157,6 @@ utb-gamificacion/
     schema.prisma            # 22 modelos
     migrations/              # Migraciones SQL
     seed.ts                  # Seed base: ISCO 2019 + usuarios demo
-    backfill-meritcoin-ids.ts# Rellena STU-{id} faltantes (npm run db:backfill-meritcoin)
   src/
     middleware.ts            # Guard de páginas -> /login
     app/
@@ -177,7 +173,6 @@ utb-gamificacion/
       academic.ts (+ academic.test.ts)
       recommendations.ts / streak.ts / activity.ts
       missionRules.ts (+ missionRules.test.ts) / missionVerification.ts
-      meritcoin.ts           # Cliente FastAPI Meritcoin + emisión ERC-1155
 ```
 
 Estructura detallada del frontend: `src/app/README.md`. Estructura del backend: `src/app/api/README.md`.
@@ -264,16 +259,11 @@ cp .env.example .env     # en Windows: copy .env.example .env
 DATABASE_URL="postgresql://postgres:postgres@localhost:5432/utb_gamificacion?schema=public"
 NEXTAUTH_SECRET="cambia-este-secreto-por-uno-seguro"
 NEXTAUTH_URL="http://localhost:3000"
-MERITCOIN_API_URL="http://localhost:8000"
-MERITCOIN_ISSUER_ID="utb-app"
-MERITCOIN_ISSUER_ROLE="admin"
-MERITCOIN_ONBOARDING_COURSE_ID="GAMIFICACION-ONBOARDING"
 UNIVERSITY_API_URL="http://localhost:3001"
 UNIVERSITY_API_KEY="dev-key"
 UNIVERSITY_API_ENABLED="false"
 ```
 
-Sin `MERITCOIN_*` la app funciona local; solo falla el espejo/emisión on-chain.
 Con `UNIVERSITY_API_ENABLED="true"` el curriculum y el perfil del estudiante leen de la API externa en vez de Prisma directo.
 
 3. DB + seed:
@@ -282,7 +272,6 @@ Con `UNIVERSITY_API_ENABLED="true"` el curriculum y el perfil del estudiante lee
 npm run db:generate
 npm run db:push
 npm run db:seed        # seed base (tsx prisma/seed.ts)
-npm run db:backfill-meritcoin  # rellena meritcoinStudentId STU-{id} faltantes
 ```
 
 4. Dev:
@@ -325,8 +314,6 @@ npm run db:generate      # Generar cliente Prisma
 npm run db:push          # Sincronizar schema (sin migraciones)
 npm run db:seed          # Seed base DESTRUCTIVO (tsx prisma/seed.ts)
 npm run db:seed-if-empty # Seed solo si la tabla users está vacía (no destructivo)
-npm run db:backfill-meritcoin # Backfill STU-{id}
-npm run db:reset         # push --force-reset + seed base
 npm run db:studio        # Prisma Studio GUI
 
 npm run lint             # ESLint (next + TS)
@@ -340,7 +327,7 @@ npm run test:unit        # Tests unitarios (tsx --test src/lib/**/*.test.ts)
 ### Usuarios y auth
 
 - **User**: email institucional único, nombre, `passwordHash` (bcrypt), rol `STUDENT/TEACHER/ADMIN`.
-- **StudentProfile**: `studentCode`, `programId`, `currentSemester`, `totalCredits`, `averageGrade`, `level`, `walletAddress` (0x, espejo `wallet_registry`), `meritcoinStudentId` único `STU-{id}`.
+- **StudentProfile**: `studentCode`, `programId`, `currentSemester`, `totalCredits`, `averageGrade`, `level`.
 - **TeacherProfile**: departamento, facultad, profesión, cargo, `isActive`.
 
 ### Académico
@@ -356,7 +343,7 @@ npm run test:unit        # Tests unitarios (tsx --test src/lib/**/*.test.ts)
 - **Point**: `amount + source + description`.
 - **Mission**: `type, pointsReward, autoVerify + verificationKey/Value, courseId?, requiredLevel?, isActive, start/endDate`.
 - **StudentMission**: `status, progress 0-100, evidence, metadata JSON, verifiedBy/At, reviewComment`, único por estudiante+misión.
-- **Badge**: `category, iconUrl, requiredLevel?, pointsRequired?, externalId? MERIT-<tokenId>`.
+- **Badge**: `category, iconUrl, requiredLevel?, pointsRequired?`.
 - **StudentBadge**: único por estudiante+insignia.
 - **Level**: `number, name, minPoints`.
 
@@ -381,13 +368,6 @@ npm run test:unit        # Tests unitarios (tsx --test src/lib/**/*.test.ts)
 - Validación de entrada y 401/403/404 JSON en todos los endpoints.
 
 ---
-
-## Integración Meritcoin (`src/lib/meritcoin.ts`)
-
-- Backend FastAPI externo (`MERITCOIN_API_URL`): `GET /students/{wallet}/summary`, `/students/{wallet}/badges`, emisión ERC-1155, `wallet_registry.student_id = STU-{id}`.
-- `STU-{id}` se normaliza con `normalizeMeritcoinStudentId()` y se backfillea con `db:backfill-meritcoin`.
-- Si hay `STU-x` sin wallet, `/logros`/`/api/badges/award` provisionan wallet custodial automáticamente.
-- Sin Meritcoin arriba, todo lo local sigue funcionando.
 
 ## Integraciones Futuras
 

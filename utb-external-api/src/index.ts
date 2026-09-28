@@ -22,7 +22,6 @@ const fixtures = JSON.parse(fixturesRaw) as {
     currentSemester: number;
     averageGrade: number;
     level: number;
-    meritcoinStudentId: string;
     enrollments: Array<{
       courseCode: string;
       courseName: string;

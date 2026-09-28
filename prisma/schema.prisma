@@ -57,8 +57,6 @@ model StudentProfile {
   totalCredits    Int      @default(0)
   averageGrade    Float    @default(0.0)
   level           Int      @default(1)  // Nivel académico actual
-  walletAddress   String?  // Wallet Ethereum para insignias on-chain (Meritcoin, espejo de wallet_registry)
-  meritcoinStudentId String? @unique // ID canónico en Meritcoin/Moodle (formato STU-{userid}, ver wallet_registry.student_id)
 
   // Relaciones
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -69,8 +67,6 @@ model StudentProfile {
   riskAlerts      RiskAlert[]
 
   @@map("student_profiles")
-  @@index([walletAddress])
-  @@index([meritcoinStudentId])
 }
 
 model TeacherProfile {
@@ -344,7 +340,6 @@ model Badge {
   pointsRequired Int?
   isActive      Boolean   @default(true)
   createdAt     DateTime  @default(now())
-  externalId    String?   @unique // Ej: "MERIT-<tokenId>" para insignias espejo on-chain
 
   students      StudentBadge[]
 
@@ -357,7 +352,6 @@ enum BadgeCategory {
   HABITO
   IMPACTO_SOCIAL
   RENDIMIENTO
-  MERITCOIN
 }
 
 model StudentBadge {

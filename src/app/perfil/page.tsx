@@ -22,8 +22,6 @@ type ProfileData = {
     totalCredits: number;
     averageGrade: number;
     level: number;
-    walletAddress: string | null;
-    meritcoinStudentId: string | null;
     program: { name: string; totalCredits: number };
   };
   stats: {
@@ -42,10 +40,6 @@ type ProfileData = {
 export default function ProfilePage() {
   const [data, setData] = useState<ProfileData | null>(null);
   const [error, setError] = useState("");
-  const [walletInput, setWalletInput] = useState<string | null>(null);
-  const [meritIdInput, setMeritIdInput] = useState<string | null>(null);
-  const [walletSaving, setWalletSaving] = useState(false);
-  const [walletMessage, setWalletMessage] = useState("");
 
   useEffect(() => {
     fetch("/api/student")
@@ -55,70 +49,6 @@ export default function ProfilePage() {
       })
       .catch(() => setError("No se pudo cargar el perfil"));
   }, []);
-
-  const shownWallet = walletInput ?? data?.profile.walletAddress ?? "";
-  const shownMeritId = meritIdInput ?? data?.profile.meritcoinStudentId ?? "";
-  const meritStatus = !data?.profile.meritcoinStudentId
-    ? {
-        label: "Sin vincular",
-        cls: "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300",
-      }
-    : !data?.profile.walletAddress
-      ? {
-          label: "ID vinculado, sin wallet",
-          cls: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
-        }
-      : {
-          label: "Vinculado a Meritcoin",
-          cls: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
-        };
-
-  const saveWallet = async () => {
-    setWalletSaving(true);
-    setWalletMessage("");
-    try {
-      const response = await fetch("/api/student", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          walletAddress: shownWallet.trim(),
-          meritcoinStudentId: shownMeritId.trim(),
-        }),
-      });
-      const result = await response.json();
-      if (!response.ok)
-        throw new Error(
-          result.error || "No se pudo guardar el vínculo Meritcoin",
-        );
-      setData((prev) =>
-        prev
-          ? {
-              ...prev,
-              profile: {
-                ...prev.profile,
-                walletAddress: result.walletAddress,
-                meritcoinStudentId: result.meritcoinStudentId,
-              },
-            }
-          : prev,
-      );
-      setWalletInput(result.walletAddress);
-      setMeritIdInput(result.meritcoinStudentId);
-      setWalletMessage(
-        result.walletAddress || result.meritcoinStudentId
-          ? "Vínculo Meritcoin guardado. Tus insignias on-chain se reflejarán en Logros."
-          : "Vínculo Meritcoin eliminado.",
-      );
-    } catch (err) {
-      setWalletMessage(
-        err instanceof Error
-          ? err.message
-          : "No se pudo guardar el vínculo Meritcoin",
-      );
-    } finally {
-      setWalletSaving(false);
-    }
-  };
 
   if (error)
     return <div className="rounded-xl bg-red-50 p-6 text-red-700">{error}</div>;
@@ -267,51 +197,6 @@ export default function ProfilePage() {
           </Link>
         </section>
       </div>
-
-      <section className="rounded-xl border border-gray-200 bg-white shadow-xs p-6 dark:border-gray-700 dark:bg-gray-800">
-        <div className="flex items-center justify-between gap-3">
-          <h2 className="text-xl font-bold">Vínculo con Meritcoin</h2>
-          <span
-            className={`rounded-full px-3 py-1 text-xs font-semibold ${meritStatus.cls}`}
-          >
-            {meritStatus.label}
-          </span>
-        </div>
-        <p className="mt-1 text-sm text-gray-500">
-          Usa tu ID de Meritcoin/Moodle (formato STU-3). Si tienes STU-x pero no
-          wallet, Logros provisiona tu wallet custodial automáticamente.
-        </p>
-        <div className="mt-4 flex flex-col gap-3">
-          <input
-            value={shownWallet}
-            onChange={(e) => setWalletInput(e.target.value)}
-            placeholder="Wallet 0x..."
-            spellCheck={false}
-            className="flex-1 rounded-lg border border-gray-300 px-3 py-2 font-mono text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-          />
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <input
-              value={shownMeritId}
-              onChange={(e) => setMeritIdInput(e.target.value)}
-              placeholder="ID en Meritcoin/Moodle (ej. STU-3)"
-              spellCheck={false}
-              className="flex-1 rounded-lg border border-gray-300 px-3 py-2 font-mono text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-            />
-            <button
-              onClick={saveWallet}
-              disabled={walletSaving}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
-            >
-              {walletSaving ? "Guardando..." : "Guardar vínculo"}
-            </button>
-          </div>
-        </div>
-        {walletMessage && (
-          <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
-            {walletMessage}
-          </p>
-        )}
-      </section>
 
       <section className="rounded-xl border border-gray-200 bg-white shadow-xs p-6 dark:border-gray-700 dark:bg-gray-800">
         <div className="flex items-center justify-between">

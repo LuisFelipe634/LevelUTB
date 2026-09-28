@@ -27,12 +27,6 @@
 **/*.p12
 **/*.pfx
 
-# Artefactos del backfill de Meritcoin: corrios y llaves de estudiante (PII).
-# Los genera el script en la raiz del repo; nunca deben entrar a la imagen.
-moodle-users.txt
-meritcoin-map.json
-moodledata-export*
-
 # CSV de PROA del import: correos, codigos y nombres de estudiantes
 imports
 

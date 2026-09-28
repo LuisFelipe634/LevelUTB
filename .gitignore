@@ -48,12 +48,6 @@ next-env.d.ts
 /AGENTS.md
 /CLAUDE.md
 
-# Artefactos del backfill de Meritcoin: export de Moodle (correos + id de
-# Moodle) y el mapa correo -> STU-x. Son datos personales de estudiantes.
-/moodle-users.txt
-/meritcoin-map.json
-/moodledata-export*
-
 # CSV de PROA para el import: correos, codigos y nombres de estudiantes.
 /imports/*
 !/imports/.gitkeep

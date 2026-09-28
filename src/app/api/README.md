@@ -10,13 +10,12 @@ src/app/api/
   auth/request-code/route.ts   # POST {email} OTP al buzón @utb.edu.co (rate-limit 5/h)
   auth/verify-code/route.ts    # POST {email,code,name,password,studentCode?} JIT STUDENT
   admin/teachers/route.ts      # POST alta docente solo ADMIN (sin auto-registro TEACHER)
-  student/route.ts              # GET perfil+stats | PATCH vínculo Meritcoin
+  student/route.ts              # GET perfil + stats + racha + insignias recientes
   curriculum/route.ts           # GET malla con estados | POST selección de cursos
   stats/route.ts                # GET agregados académicos + gamificación
   missions/route.ts             # GET disponibles+estado | POST avance/evidencia
   rewards/route.ts              # GET catálogo+puntos+canjes | POST solicitar canje
-  badges/route.ts               # GET locales + espejo Meritcoin
-  badges/award/route.ts         # POST emitir insignia local a Meritcoin on-chain
+  badges/route.ts               # GET insignias locales + estadísticas por categoría
   notifications/route.ts        # GET listar | PATCH marcar leída | DELETE borrar
   recommendations/route.ts      # GET generar bajo demanda | PATCH aceptar/descartar
   search/route.ts               # GET ?q= búsqueda global sin tildes
@@ -37,7 +36,6 @@ src/lib/ (dominio usado por las rutas)
   activity.ts        # recordDailyAcademicActivity, recordUserActivity, ACTIVITY_ACTIONS
   missionRules.ts    # computeConsecutiveAccessStreak, countUniqueCompletedMissions (+ tests)
   missionVerification.ts # verifyMission(autoVerify por verificationKey/Value)
-  meritcoin.ts       # Cliente FastAPI Meritcoin, normalizeMeritcoinStudentId, emisión ERC-1155
   academicSource.ts  # Interfaz AcademicSource + tipos (malla, estudiante, programa)
   getAcademicSource.ts # Factory: Prisma o HTTP según UNIVERSITY_API_ENABLED
   prismaAcademicSource.ts # Origen académico sobre Prisma (comportamiento previo)
@@ -56,7 +54,7 @@ prisma/schema.prisma # 22 modelos (fuente de verdad de tablas/enums)
    - sin sesión → `401 { error: "No autorizado" }`
    - rol distinto → `403 { error }`
 3. Valida el body/query, calcula el periodo actual (`YYYY-1` ene-jun, `YYYY-2` jul-dic) cuando filtra `Enrollment.semesterCode` o `TeacherCourse.period`.
-4. Llama a `src/lib/*` para reglas (promedios, racha, verificación, recomendaciones, Meritcoin) y a `prisma` para leer/escribir.
+4. Llama a `src/lib/*` para reglas (promedios, racha, verificación, recomendaciones) y a `prisma` para leer/escribir.
 5. Registra actividad en `Activity` cuando cuenta para racha o auditoría (`ACADEMIC_DAILY_ACTIVITY`, `RUTA_RECOMENDADA_DOCENTE`, vistas).
 6. Responde JSON. Errores: `400` entrada inválida, `401/403` auth, `404` no encontrado.
 
@@ -69,14 +67,13 @@ Convención: `GET` nunca muta salvo registrar actividad diaria idempotente (`/ap
 
 ### Registro institucional — `auth/request-code` + `auth/verify-code`
 - `POST request-code { email }`: normaliza, rate-limit, verifica no registrado, invalida OTPs previos, crea `EmailVerificationToken` (SHA-256, 15 min) y envía vía `emailProvider`.
-- `POST verify-code { email, code, name, password, studentCode? }`: valida OTP (5 intentos, un solo uso), resuelve `studentCode/programId/admissionYear` por prioridad `AllowedStudent > parse(email) > studentCode manual`, crea `User(STUDENT)+StudentProfile` en transacción + notificación. `meritcoinStudentId` queda NULL hasta Moodle real.
+- `POST verify-code { email, code, name, password, studentCode? }`: valida OTP (5 intentos, un solo uso), resuelve `studentCode/programId/admissionYear` por prioridad `AllowedStudent > parse(email) > studentCode manual`, crea `User(STUDENT)+StudentProfile` en transacción + notificación.
 - `POST admin/teachers` (ADMIN): única alta docente. Requiere `ADMIN_EMAIL` bootstrap vía seed/env.
 
 ### Estudiante
 
 **`student/route.ts` (STUDENT)**
 - `GET`: usuario + `studentProfile(program, enrollments)` + `totalPoints` + nivel + `recentBadges` + `streak`. Si hoy no hay `ACADEMIC_DAILY_ACTIVITY`, la crea. El perfil y las inscripciones se leen vía `getAcademicSource()`.
-- `PATCH { walletAddress?, meritcoinStudentId? }`: normaliza `STU-x`, valida `0x...`, guarda y devuelve `{ walletAddress, meritcoinStudentId }`.
 
 **`curriculum/route.ts` (STUDENT)**
 - `GET`: programa + semestres + cursos con `prerequisites`, cruza `Enrollment` para estado `APROBADO/EN_CURSO/BLOQUEADO/DISPONIBLE`, calcula créditos y `getCreditLimit/getCurrentSemester`. Lee la malla vía `getAcademicSource()`.
@@ -95,10 +92,7 @@ Convención: `GET` nunca muta salvo registrar actividad diaria idempotente (`/ap
 - `POST { rewardId, courseId }`: valida puntos (`cost`), `maxUses`, que el curso sea del periodo; crea `StudentReward{SOLICITADO, pointsSpent}`.
 
 **`badges/route.ts` (STUDENT)**
-- `GET`: badges locales (`StudentBadge`) + `syncMeritcoinTemplates/syncMeritcoinBadges/syncMeritcoinAwardsByStudentId` + `getMeritcoinBalance(wallet)` + `resolveCustodialWallet`. Sin Meritcoin responde solo local.
-
-**`badges/award/route.ts` (STUDENT)**
-- `POST { badgeId }`: la insignia debe estar ganada localmente. Exige `meritcoinStudentId STU-x`; si no hay wallet, la provisiona. Llama `emitLocalBadgeToMeritcoin()` y marca `externalId=MERIT-<tokenId>`.
+- `GET`: catálogo de insignias activas (`Badge`) con el estado de cada una para el estudiante (`StudentBadge`), más `stats` agregadas (total, obtenidas, porcentaje y desglose por categoría).
 
 **`notifications/route.ts` (STUDENT/TEACHER)**
 - `GET`: propias ordenadas por fecha. `PATCH { id, isRead }`. `DELETE ?id=`.
@@ -128,7 +122,6 @@ Convención: `GET` nunca muta salvo registrar actividad diaria idempotente (`/ap
 - `academic.ts`: promedio ponderado por créditos, semestre actual por `semesterCode`, tope de créditos por semestre.
 - `streak.ts` + `activity.ts`: racha diaria por `Activity.createdAt` continua (`current/best/activeToday`).
 - `missionVerification.ts`: interpreta `verificationKey` (`APROBAR_CREDITOS_SEMESTRE`, `MEJORA_PROMEDIO`, `RACHA_*`, curso concreto...) con `verificationValue`.
-- `meritcoin.ts`: espejo `summary/badges`, `student_id STU-{id}` (`wallet_registry`), emisión on-chain, gateway IPFS. Si `MERITCOIN_API_URL` no responde, las rutas devuelven local + `meritcoinAvailable: false`.
 - Tests: `npm run test:unit` (`academic.test.ts`, `missionRules.test.ts`).
 
 ## Cómo añadir un endpoint

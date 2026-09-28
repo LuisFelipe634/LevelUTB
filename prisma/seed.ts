@@ -417,9 +417,6 @@ async function createDemoStudent(programId: string, passwordHash: string) {
       studentProfile: {
         create: {
           studentCode: '2019123456',
-          // Llave canónica Meritcoin: debe coincidir con wallet_registry.student_id (STU-{moodleId}).
-          // Ajusta con `npm run db:backfill-meritcoin -- --map ./meritcoin-map.json` para datos reales.
-          meritcoinStudentId: 'STU-2',
           programId,
           currentSemester: DEMO_CURRENT_SEMESTER,
           admissionYear: 2019,
@@ -474,7 +471,6 @@ async function createSecondStudent(programId: string, passwordHash: string) {
       studentProfile: {
         create: {
           studentCode: '2020123456',
-          meritcoinStudentId: 'STU-3',
           programId,
           currentSemester: SARA_CURRENT_SEMESTER,
           admissionYear: 2019,
@@ -527,7 +523,6 @@ async function createThirdStudent(programId: string, passwordHash: string) {
       studentProfile: {
         create: {
           studentCode: '2021123456',
-          meritcoinStudentId: 'STU-4',
           programId,
           currentSemester: ANGELA_CURRENT_SEMESTER,
           admissionYear: 2021,

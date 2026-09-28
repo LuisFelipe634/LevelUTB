@@ -24,7 +24,6 @@ interface Badge {
   earned: boolean
   earnedAt: string | null
   evidence: string | null
-  source: "LOCAL" | "MERITCOIN"
   progress: { current: number; target: number; percentage: number } | null
 }
 
@@ -40,8 +39,7 @@ const categoryConfig: Record<string, { label: string; color: string; bg: string;
   HABITO: { label: "Hábito", color: "text-orange-600 dark:text-orange-400", bg: "bg-orange-100 dark:bg-orange-900/30", icon: Target },
   COMPETENCIA: { label: "Competencia", color: "text-purple-600 dark:text-purple-400", bg: "bg-purple-100 dark:bg-purple-900/30", icon: Award },
   IMPACTO_SOCIAL: { label: "Social", color: "text-pink-600 dark:text-pink-400", bg: "bg-pink-100 dark:bg-pink-900/30", icon: Users },
-  RENDIMIENTO: { label: "Rendimiento", color: "text-yellow-600 dark:text-yellow-400", bg: "bg-yellow-100 dark:bg-yellow-900/30", icon: Star },
-  MERITCOIN: { label: "On-chain", color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-100 dark:bg-emerald-900/30", icon: CheckCircle }
+  RENDIMIENTO: { label: "Rendimiento", color: "text-yellow-600 dark:text-yellow-400", bg: "bg-yellow-100 dark:bg-yellow-900/30", icon: Star }
 }
 
 export default function Logros() {
@@ -49,9 +47,6 @@ export default function Logros() {
   const [stats, setStats] = useState<BadgeStats | null>(null)
   const [filter, setFilter] = useState<string>("all")
   const [loading, setLoading] = useState(true)
-  const [meritcoin, setMeritcoin] = useState<{ connected: boolean; balanceMrt: number | null }>({ connected: false, balanceMrt: null })
-  const [awardingId, setAwardingId] = useState<string | null>(null)
-  const [awardMessage, setAwardMessage] = useState("")
 
   const fetchBadges = async () => {
     try {
@@ -60,31 +55,10 @@ export default function Logros() {
       const data = await response.json()
       setBadges(data.badges)
       setStats(data.stats)
-      if (data.meritcoin) setMeritcoin(data.meritcoin)
     } catch (error) {
       console.error("Error:", error)
     } finally {
       setLoading(false)
-    }
-  }
-
-  const emitOnChain = async (badgeId: string) => {
-    setAwardingId(badgeId)
-    setAwardMessage("")
-    try {
-      const response = await fetch("/api/badges/award", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ badgeId }),
-      })
-      const result = await response.json()
-      if (!response.ok || !result.awarded) throw new Error(result.message || result.error || "No se pudo emitir")
-      setAwardMessage(`Emitida on-chain ✓ tx ${String(result.txHash ?? "").slice(0, 10)}…`)
-      await fetchBadges()
-    } catch (error) {
-      setAwardMessage(error instanceof Error ? error.message : "No se pudo emitir on-chain")
-    } finally {
-      setAwardingId(null)
     }
   }
 
@@ -119,15 +93,7 @@ export default function Logros() {
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Logros e Insignias</h1>
         <p className="text-gray-600 dark:text-gray-400">
           Colecciona insignias por tus logros académicos
-          {meritcoin.connected && meritcoin.balanceMrt !== null && (
-            <span className="ml-2 font-semibold text-emerald-600 dark:text-emerald-400">
-              · {meritcoin.balanceMrt} MRT on-chain
-            </span>
-          )}
         </p>
-        {awardMessage && (
-          <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">{awardMessage}</p>
-        )}
       </div>
 
       {/* Stats */}
@@ -241,12 +207,6 @@ export default function Logros() {
                 <h3 className="font-semibold text-gray-900 dark:text-white">{badge.name}</h3>
                 {badge.earned && <CheckCircle className="w-4 h-4 text-green-500" />}
               </div>
-              {badge.source === "MERITCOIN" && (
-                <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 mb-2">
-                  <CheckCircle className="w-3 h-3" />
-                  Verificada on-chain
-                </div>
-              )}
               <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${category.bg} ${category.color} mb-2`}>
                 <CatIcon className="w-3 h-3" />
                 {category.label}
@@ -259,20 +219,9 @@ export default function Logros() {
 
               {/* Progress or Earned */}
               {badge.earned ? (
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
-                    <CheckCircle className="w-4 h-4" />
-                    <span>Obtenida {new Date(badge.earnedAt!).toLocaleDateString("es-ES")}</span>
-                  </div>
-                  {badge.source === "LOCAL" && (
-                    <button
-                      onClick={() => emitOnChain(badge.id)}
-                      disabled={awardingId === badge.id}
-                      className="text-xs font-semibold text-emerald-700 hover:text-emerald-900 disabled:opacity-50 dark:text-emerald-300"
-                    >
-                      {awardingId === badge.id ? "Emitiendo on-chain..." : "Emitir on-chain ⬢"}
-                    </button>
-                  )}
+                <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
+                  <CheckCircle className="w-4 h-4" />
+                  <span>Obtenida {new Date(badge.earnedAt!).toLocaleDateString("es-ES")}</span>
                 </div>
               ) : (
                 <div>

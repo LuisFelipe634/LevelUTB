@@ -17,10 +17,10 @@ COPY --chown=node:node tsconfig.json next.config.ts postcss.config.mjs eslint.co
 # Estas tres rutas son codigo y estaticos, nada mas: sin .env, sin llaves, sin
 # datos de estudiantes. Verificado sobre la imagen construida (61 archivos en src,
 # 8 en prisma, 1 en public, sin .git). El .dockerignore de la raiz es la red que
-# cubre lo que alguien agregue athese directorios en el futuro: excluye
-# **/.env, **/*.pem|key|p12|pfx y los artefactos de PII del backfill de
-# Meritcoin y del import de PROA. Si alguna vez se agrega aqui un archivo con
-# datos sensibles, la copia lo arrastra: agregar el patron al .dockerignore.
+# cubre lo que alguien agregue a estos directorios en el futuro: excluye
+# **/.env, **/*.pem|key|p12|pfx y los CSV de PII del import de PROA. Si alguna
+# vez se agrega aqui un archivo con datos sensibles, la copia lo arrastra:
+# agregar el patron al .dockerignore.
 COPY --chown=node:node src ./src
 COPY --chown=node:node prisma ./prisma
 COPY --chown=node:node public ./public

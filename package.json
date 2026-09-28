@@ -13,7 +13,6 @@
     "db:seed": "tsx prisma/seed.ts",
     "db:seed-if-empty": "tsx prisma/seed-if-empty.ts",
     "db:import-proa": "tsx scripts/import-proa.ts",
-    "db:backfill-meritcoin": "tsx prisma/backfill-meritcoin-ids.ts",
     "db:reset": "prisma db push --force-reset && npm run db:seed",
     "db:studio": "prisma studio"
   },

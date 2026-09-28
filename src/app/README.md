@@ -14,11 +14,11 @@ src/app/
   dashboard/page.tsx  # Resumen: puntos/nivel/racha/misiones/logros/notificaciones/riesgo
   malla/page.tsx      # Malla por semestre: APROBADO/EN_CURSO/BLOQUEADO/DISPONIBLE + selección
   misiones/page.tsx   # Disponibles/en curso/en revisión/verificadas + evidencia (filtro por tipo)
-  logros/page.tsx     # Locales + espejo Meritcoin (progreso + saldo MRT + emitir on-chain)
+  logros/page.tsx     # Insignias locales: progreso, categorías y obtenidas/bloqueadas
   recompensas/page.tsx# Catálogo por categoría + puntos + solicitar con courseId + mis canjes
   estadisticas/page.tsx # Créditos/promedio/nivel/tendencia/distribución por semestre
   notificaciones/page.tsx # Centro: filtro leídas/no + marcar/borrar (link a acción)
-  perfil/page.tsx     # Header + stats + resumen académico + nivel + vínculo Meritcoin + recientes
+  perfil/page.tsx     # Header + stats + resumen académico + nivel + insignias recientes
   docentes/page.tsx   # TEACHER: cursos del periodo + estudiantes + revisar misión + ruta + canjes
   perfil-docente/page.tsx # TEACHER: facultad/depto/profesión + acompañados + pendientes
 
@@ -50,11 +50,11 @@ public/utb-logotipo.png # Logo usado en Sidebar/Login
 | `/dashboard` | `/api/student`, `/api/stats`, `/api/missions`, `/api/notifications` | Vista agregada + accesos a malla/misiones |
 | `/malla` | `GET/POST /api/curriculum` | Ver estados por prerrequisito, seleccionar cursos del periodo |
 | `/misiones` | `GET/POST /api/missions` | Iniciar/avanzar con `evidence`, ver `EN_REVISION` |
-| `/logros` | `GET /api/badges`, `POST /api/badges/award` | Ver progreso, emitir ganada a Meritcoin |
+| `/logros` | `GET /api/badges` | Ver progreso y filtrar por categoría/estado |
 | `/recompensas` | `GET/POST /api/rewards` | Solicitar `{ rewardId, courseId }`, ver `SOLICITADO/APROBADO/...` |
 | `/estadisticas` | `GET /api/stats` | Gráficas/tablas de avance y notas |
 | `/notificaciones` | `GET/PATCH/DELETE /api/notifications` | Marcar leídas, seguir `link` |
-| `/perfil` | `GET/PATCH /api/student` | Editar `walletAddress + meritcoinStudentId (STU-x)` |
+| `/perfil` | `GET /api/student` | Ver datos académicos, nivel e insignias recientes |
 | `/docentes` | `GET/PATCH /api/teacher`, `GET/PATCH /api/teacher/rewards`, `POST /api/teacher/notify` | Revisar misión/canje, enviar ruta |
 | `/perfil-docente` | `GET /api/teacher` | Resumen profesional y pendientes |
 
@@ -62,6 +62,6 @@ public/utb-logotipo.png # Logo usado en Sidebar/Login
 
 - Nuevas páginas: carpeta `src/app/<ruta>/page.tsx` con `"use client"`, fetch a `/api/*`, estados `loading/error/data`, iconos lucide-react.
 - Rutas de estudiante en español (`/malla`, `/logros`), de docente (`/docentes`, `/perfil-docente`).
-- No llamar a Prisma ni a `MERITCOIN_*` desde páginas: siempre pasar por `/api`.
+- No llamar a Prisma desde páginas: siempre pasar por `/api`.
 - `/malla` y `/perfil` no cambian su contrato aunque cambie el origen de los datos: el backend resuelve con `getAcademicSource()`. Para pasar de Prisma a la API externa basta `UNIVERSITY_API_ENABLED=true` en `.env`; si la API cae, esas rutas responden `503`.
 - Proteger la página también en `middleware.ts`/`AppShell` si es privada, además del `requireRole` del API
