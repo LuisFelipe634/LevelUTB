@@ -14,7 +14,7 @@ src/app/
   dashboard/page.tsx  # Resumen: puntos/nivel/racha/misiones/logros/notificaciones/riesgo
   malla/page.tsx      # Malla por semestre: APROBADO/EN_CURSO/BLOQUEADO/DISPONIBLE + selección
   misiones/page.tsx   # Disponibles/en curso/en revisión/verificadas + evidencia (filtro por tipo)
-  logros/page.tsx     # Insignias locales: progreso, categorías y obtenidas/bloqueadas
+  logros/page.tsx     # Insignias: progreso, categorías, obtenidas/bloqueadas + chip de origen del catálogo
   recompensas/page.tsx# Catálogo por categoría + puntos + solicitar con courseId + mis canjes
   estadisticas/page.tsx # Créditos/promedio/nivel/tendencia/distribución por semestre
   notificaciones/page.tsx # Centro: filtro leídas/no + marcar/borrar (link a acción)
@@ -50,7 +50,7 @@ public/utb-logotipo.png # Logo usado en Sidebar/Login
 | `/dashboard` | `/api/student`, `/api/stats`, `/api/missions`, `/api/notifications` | Vista agregada + accesos a malla/misiones |
 | `/malla` | `GET/POST /api/curriculum` | Ver estados por prerrequisito, seleccionar cursos del periodo |
 | `/misiones` | `GET/POST /api/missions` | Iniciar/avanzar con `evidence`, ver `EN_REVISION` |
-| `/logros` | `GET /api/badges` | Ver progreso y filtrar por categoría/estado |
+| `/logros` | `GET /api/badges` | Ver progreso, filtrar por categoría/estado, ver de dónde salió el catálogo (`origin.source` / `origin.degraded`) |
 | `/recompensas` | `GET/POST /api/rewards` | Solicitar `{ rewardId, courseId }`, ver `SOLICITADO/APROBADO/...` |
 | `/estadisticas` | `GET /api/stats` | Gráficas/tablas de avance y notas |
 | `/notificaciones` | `GET/PATCH/DELETE /api/notifications` | Marcar leídas, seguir `link` |

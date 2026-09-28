@@ -70,6 +70,7 @@ flowchart LR
 | PostgreSQL | Prisma Client (`src/lib/prisma.ts`), 24 modelos | Implementado |
 | Proveedor correo | `POST https://api.resend.com/emails` o log `SMTP_HOST`; `console-dev` en desarrollo | Implementado con fallback (SMTP real pendiente) |
 | PROA / Banner | Sin API directa; CSV → `AllowedStudent` vía `scripts/import-proa.ts` | Parcial (import manual, sin sync automática) |
+| API de insignias | `GET /academic/badges`, `GET /academic/students/:code/badges` (misma `UNIVERSITY_API_URL`) | Simulado en `utb-external-api` |
 
 ---
 
@@ -118,14 +119,14 @@ flowchart TB
 | Registro institucional | `api/auth/request-code/route.ts`, `api/auth/verify-code/route.ts`, `lib/institutionalEmail|emailProvider|rateLimit.ts` | OTP SHA-256 15 min/un solo uso/5 intentos, rate-limit 5/h y 10/h, JIT `User+StudentProfile+Notification` |
 | Admin | `api/admin/teachers/route.ts` | Alta docente solo `ADMIN` (bcrypt 12). Sin auto-registro `TEACHER` |
 | Estudiante | `api/student`, `api/curriculum`, `api/stats` | Perfil+racha, malla con estados por prerrequisito, agregados académicos. `student` y `curriculum` leen vía `getAcademicSource()` |
-| Gamificación | `api/missions`, `api/badges` | Misiones manuales/automáticas, insignias locales y estadísticas por categoría |
+| Gamificación | `api/missions`, `api/badges` | Misiones manuales/automáticas; insignias con catálogo intercambiable (Prisma o API institucional) y estadísticas por categoría |
 | Recompensas | `api/rewards`, `api/teacher/rewards` | Catálogo, solicitud `{rewardId, courseId}` (`@@unique[studentId,rewardId,courseId]`, pendiente por curso, débito `CANJE_RECOMPENSA`), aprobación docente |
 | Acompañamiento | `api/teacher`, `api/teacher/notify` | Estudiantes por curso del periodo, revisión de misiones, ruta recomendada + `Activity` |
 | Transversales | `api/notifications`, `api/recommendations`, `api/search` | Notificaciones, motor de recomendaciones, búsqueda sin tildes |
 | Reglas | `lib/academic|recommendations|streak|activity|missionRules|missionVerification.ts` | Cálculos de dominio; `academic` y `APROBAR_CREDITOS_SEMESTRE` excluyen `MANUAL` |
+| Insignias | `lib/badgeSource.ts` (contrato `BadgeSource`), `prismaBadgeSource.ts`, `httpBadgeSource.ts`, `getBadgeSource.ts` | Abstracción del origen del catálogo, con el mismo toggle `UNIVERSITY_API_ENABLED` que la malla. Degrada a Prisma si la externa cae |
 | Fuente académica | `lib/academicSource.ts` (interfaz + tipos), `getAcademicSource.ts` (factory), `prismaAcademicSource.ts`, `httpAcademicSource.ts` | Abstracción del origen de datos de malla y estudiante. `EXTERNAL_API_UNAVAILABLE` → las rutas responden 503, no 500 |
 | Datos | `prisma/schema.prisma` (24 modelos), `seed.ts`, `seed-if-empty.ts`, `scripts/import-proa.ts` | Contrato de datos, datos iniciales ISCO 2019, seed condicional, import CSV → `AllowedStudent` |
-
 ### Nivel 2 — Frontend (`src/app` + `src/components`)
 
 | Página | Consume | Acción |
@@ -135,7 +136,7 @@ flowchart TB
 | `/dashboard` | `/api/student`, `/stats`, `/missions`, `/notifications` | Resumen agregado |
 | `/malla` | `GET/POST /api/curriculum` | Estados `APROBADO/EN_CURSO/BLOQUEADO/DISPONIBLE`, selección del periodo (crea `CURSANDO MANUAL`) |
 | `/misiones` | `GET/POST /api/missions` | Evidencia, estados `PENDIENTE→…→VERIFICADA/RECHAZADA` |
-| `/logros` | `GET /api/badges` | Progreso, categorías, obtenidas/bloqueadas |
+| `/logros` | `GET /api/badges` | Progreso, categorías, obtenidas/bloqueadas + chip del origen del catálogo |
 | `/recompensas` | `GET/POST /api/rewards` | Canje atado a `courseId`, estados `SOLICITADO→APROBADO→USADO/EXPIRADO` |
 | `/estadisticas` | `GET /api/stats` | Tendencia y distribución por semestre |
 | `/notificaciones` | `GET/PATCH/DELETE /api/notifications` | Marcar leída, seguir `link` |
@@ -277,6 +278,7 @@ flowchart LR
 - **UX**: tarjetas `rounded-xl border bg-white dark:bg-gray-800`, acento azul/cian, `next-themes` (default light), responsive móvil/escritorio. `/registro` y `/login` sin `Sidebar/Header` (`AppShell.publicRoutes`).
 - **Calidad de código**: `npm run lint` (ESLint next+TS; 7 warnings preexistentes), `npm run test:unit` (`academic.test.ts`, `missionRules.test.ts`, `institutionalEmail.test.ts`), Prettier para formato.
 - **Fuente académica**: `getAcademicSource()` se resuelve en cada request; `AcademicStudentData.source` (`"prisma" | "http"`) deja auditar de dónde salió la respuesta. Con la API externa caída, `HttpAcademicSource` lanza `EXTERNAL_API_UNAVAILABLE` y `curriculum`/`student` responden `503`, para que el fallo sea distinguible de un error de la app.
+- **Fuente de insignias**: mismo patrón con `getBadgeSource()`, pero la política de fallo es la opuesta: `HttpBadgeSource` lanza y `/api/badges` degrada a `PrismaBadgeSource` en vez de cortar. Motivo: el catálogo local es una fuente completa y válida, así que un 503 sería peor que servirlo. `origin{source,catalogVersion,degraded}` viaja en la respuesta y `/logros` lo muestra como chip. Un 404 externo no degrada (dato faltante, no caída).
 
 ---
 
@@ -314,6 +316,7 @@ flowchart LR
 | Seguridad | OTP: código aleatorio 6 dígitos, SHA-256, 15 min, un solo uso, 5 intentos, 409 si ya registrado, 429 si abusa | Implementado (con deuda: contador `attempts` no cubre todos los fallos, ver §11) |
 | Seguridad | Docente no puede auto-registrarse; `POST /api/admin/teachers` exige `ADMIN` | Implementado (bootstrap ADMIN pendiente) |
 | Disponibilidad degradada | Con `UNIVERSITY_API_ENABLED=true` y la API externa caída → `503` controlado, sin datos parciales | Vigente |
+| Disponibilidad degradada | Con la API de insignias caída → mismo catálogo local + `origin.degraded=true` (no 503: el catálogo local es una fuente completa) | Implementado |
 | Disponibilidad degradada | Sin `RESEND_API_KEY`/`SMTP_HOST` en prod → registro responde 500 controlado, no crea cuentas sin verificar | Implementado |
 | Modificabilidad | Nueva regla de misión = nuevo `verificationKey` en `missionVerification.ts` + test en `missionRules.test.ts` | Vigente |
 | Modificabilidad | Nuevo proveedor de correo = una rama en `emailProvider.ts` (firma `sendVerificationCode`) | Implementado |
@@ -383,7 +386,7 @@ flowchart LR
 | `code` vs `named` | `parse(email)`: `code` = local-part numérico 8-10 dígitos (da `studentCode` directo); `named` = nombre (requiere allowlist o código manual) |
 | `MANUAL` / `UNIVERSITY` | `Enrollment.source`: auto-selección del estudiante vs registro oficial; solo `UNIVERSITY` cuenta para métricas verificables |
 | Misión | Reto (`ACADEMICO, PLANIFICACION, MEJORA_CONTINUA, HABITO_ESTUDIO, IMPACTO_SOCIAL`); `StudentMission.status`: `PENDIENTE→EN_PROGRESO→EN_REVISION→COMPLETADA/VERIFICADA/RECHAZADA` |
-| Insignia | `Badge.category`: `PROGRESO, RENDIMIENTO, HABITO, COMPETENCIA, IMPACTO_SOCIAL` |
+| Insignia | `Badge.category`: `PROGRESO, RENDIMIENTO, HABITO, COMPETENCIA, IMPACTO_SOCIAL`. El catálogo es intercambiable: `BADGES_DATA` en el seed (local) o `fixtures/badges.json` en `utb-external-api` (institucional), con el mismo `BadgeCategory` para que los filtros de `/logros` sirvan en ambos |
 | Recompensa / canje | `Reward.category`: `EXAMEN, ASISTENCIA, ENTREGA, OTRO`; débito `PointSource.CANJE_RECOMPENSA`; `StudentReward.status`: `SOLICITADO→APROBADO/RECHAZADO→USADO/EXPIRADO`; unicidad por `(studentId, rewardId, courseId)` |
 | Racha | Días consecutivos con `Activity`; `{current, best, activeToday}` |
 | Nivel | 1 Novato (0) · 2 Aprendiz (500) · 3 Explorador (1500) · 4 Avanzado (3000) · 5 Maestro (5000) · 6 Leyenda (8000) |

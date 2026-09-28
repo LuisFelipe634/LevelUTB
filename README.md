@@ -52,10 +52,10 @@ Next.js App Router (src/app/layout.tsx -> AppShell -> Sidebar/Header)
 | Guard global | `src/middleware.ts` | Deja pasar `/login`, `/api/auth`, estáticos; si no hay cookie de sesión redirige a `/login?callbackUrl=...`. Cada API además valida JSON. |
 | Sesión/roles | `src/lib/auth.ts`, `src/lib/session.ts` | `auth()`, `requireRole("STUDENT"\|"TEACHER")`, `jsonUnauthorized`, `jsonForbidden`. Login solo `@utb.edu.co`. |
 | Rutas HTTP | `src/app/api/**/route.ts` | Validan entrada, rol y responden JSON. Ver `src/app/api/README.md`. |
-| Dominio | `src/lib/` | `academic.ts` (promedio, semestre actual, tope créditos), `recommendations.ts`, `streak.ts`, `activity.ts` (`ACTIVITY_ACTIONS`, racha diaria), `missionRules.ts` + `missionVerification.ts` (auto-verificación). |
+| Dominio | `src/lib/` | `academic.ts` (promedio, semestre actual, tope créditos), `recommendations.ts`, `streak.ts`, `activity.ts` (`ACTIVITY_ACTIONS`, racha diaria), `missionRules.ts` + `missionVerification.ts` (auto-verificación), `getBadgeSource.ts` (origen del catálogo de insignias). |
 | Persistencia | `src/lib/prisma.ts` | Singleton `PrismaClient` + `PrismaPg`. En dev se reutiliza vía `globalThis`. |
 | Modelo | `prisma/schema.prisma` | 22 modelos: usuarios, malla, progreso, gamificación, recompensas, notificaciones, riesgo. |
-| Datos | `prisma/seed.ts` | Seed base (programa ISCO 2019, 10 semestres, 55 cursos, 162 créditos, niveles, misiones, badges, rewards + demo@utb.edu.co). |
+| Datos | `prisma/seed.ts` | Seed base (programa ISCO 2019, 10 semestres, 55 cursos, 162 créditos, niveles, misiones, 12 insignias + awarding demo, rewards + demo@utb.edu.co). |
 
 ### Catálogo de APIs
 
@@ -67,7 +67,7 @@ Next.js App Router (src/app/layout.tsx -> AppShell -> Sidebar/Header)
 | `/api/stats` | GET | STUDENT | Créditos aprobados/totales, promedio (`academic.ts`), avance por semestre, puntos/nivel, tendencia. |
 | `/api/missions` | GET, POST | STUDENT | GET disponibles (por `level`) + estado del estudiante. POST crear/avanzar con `evidence`; si `autoVerify` usa `missionVerification.ts`, si no queda `EN_REVISION`. |
 | `/api/rewards` | GET, POST | STUDENT | GET catálogo activo + puntos totales + canjes + cursos del periodo actual para elegir `courseId`. POST solicitar canje `{ rewardId, courseId }` (descuenta puntos, estado `SOLICITADO`). |
-| `/api/badges` | GET | STUDENT | Catálogo de insignias locales con estado por estudiante + estadísticas agregadas (total, obtenidas, % y desglose por categoría). |
+| `/api/badges` | GET | STUDENT | Catálogo de insignias con estado por estudiante + estadísticas agregadas (total, obtenidas, % y desglose por categoría). El origen se resuelve con `getBadgeSource()` y la respuesta incluye `origin{source, catalogVersion, degraded}`. |
 | `/api/notifications` | GET, PATCH, DELETE | ambos | Listar, marcar leída (`isRead`), borrar. Tipos: `INFO, WARNING, ALERTA_RIESGO, LOGRO_OBTENIDO, MISION_DISPONIBLE, RECORDATORIO, SOLICITUD_RECOMPENSA`. |
 | `/api/recommendations` | GET, PATCH | STUDENT | GET genera bajo demanda con `generateRecommendations()`. PATCH aceptar/descartar (`isAccepted`, `isRead`). |
 | `/api/search` | GET `?q=` | ambos | Búsqueda global (cursos, misiones, insignias) insensible a tildes. |
@@ -88,7 +88,7 @@ Detalle de flujos y cómo añadir endpoints: ver `src/app/api/README.md`.
 - **Dashboard**: puntos, nivel, racha, misiones activas, logros recientes, notificaciones y alertas.
 - **Malla interactiva**: por semestre con estado por prerrequisitos, créditos aprobados vs totales y selección de materias del periodo.
 - **Misiones**: tipos `ACADEMICO, PLANIFICACION, MEJORA_CONTINUA, HABITO_ESTUDIO, IMPACTO_SOCIAL`. Manuales con evidencia + revisión docente, o automáticas (`verificationKey/Value`: créditos, promedio, racha) vía `missionVerification.ts`. Estados: `PENDIENTE → EN_PROGRESO → EN_REVISION → COMPLETADA/VERIFICADA/RECHAZADA`.
-- **Logros**: insignias locales por progreso/rendimiento/hábito. Filtro por categoría y estado (obtenidas/bloqueadas) con barra de progreso.
+- **Logros**: insignias por progreso/rendimiento/hábito. Filtro por categoría y estado (obtenidas/bloqueadas) con barra de progreso. Un chip indica si el catálogo vino de la API de la universidad, del catálogo local, o si se degradó a local porque la API no respondió.
 - **Recompensas**: canje de puntos por bonificaciones (`EXAMEN, ASISTENCIA, ENTREGA, OTRO`) atadas a un `courseId` del periodo actual. Flujo `SOLICITADO → APROBADO/RECHAZADO → USADO/EXPIRADO`. Página `/recompensas`.
 - **Recomendaciones**: cuello de botella, reprobadas, electivas, ruta del próximo semestre, promedio < 3.5, rellenar créditos.
 - **Estadísticas**: créditos, promedio, nivel, tendencia y distribución por semestre.
@@ -156,7 +156,7 @@ utb-gamificacion/
   prisma/
     schema.prisma            # 22 modelos
     migrations/              # Migraciones SQL
-    seed.ts                  # Seed base: ISCO 2019 + usuarios demo
+    seed.ts                  # Seed base: ISCO 2019 + insignias + usuarios demo
   src/
     middleware.ts            # Guard de páginas -> /login
     app/
@@ -173,6 +173,7 @@ utb-gamificacion/
       academic.ts (+ academic.test.ts)
       recommendations.ts / streak.ts / activity.ts
       missionRules.ts (+ missionRules.test.ts) / missionVerification.ts
+      badgeSource.ts / getBadgeSource.ts # Origen del catálogo de insignias
 ```
 
 Estructura detallada del frontend: `src/app/README.md`. Estructura del backend: `src/app/api/README.md`.
@@ -369,10 +370,48 @@ npm run test:unit        # Tests unitarios (tsx --test src/lib/**/*.test.ts)
 
 ---
 
+## Origen de las insignias (`src/lib/getBadgeSource.ts`)
+
+`/api/badges` no lee el catálogo directo de Prisma: lo pide a un `BadgeSource`
+que se elige con `UNIVERSITY_API_ENABLED`, igual que la malla con `AcademicSource`.
+
+| Config | `BadgeSource` | Resultado en `/logros` |
+|---|---|---|
+| `UNIVERSITY_API_ENABLED="false"` | `PrismaBadgeSource` | Catálogo del seed (`BADGES_DATA` en `prisma/seed.ts`) |
+| `UNIVERSITY_API_ENABLED="true"` | `HttpBadgeSource` | Catálogo de la universidad vía `GET /academic/students/:code/badges` |
+
+**No fusionan: se reemplazan.** Con la API activa no se ven las insignias del
+seed, y viceversa.
+
+Si la API externa no responde, `HttpBadgeSource` lanza `ExternalApiUnavailableError`
+y la ruta **degrada al catálogo local** con `origin.degraded=true`, en vez de
+cortar con 503 como hacen `curriculum`/`student`. Un 404 externo (el estudiante no
+está registrado allá) devuelve catálogo vacío sin degradar: es un dato faltante,
+no una caída del servicio.
+
+### API de insignias de ejemplo
+
+`utb-external-api` expone el contrato que la universidad publicaría:
+
+| Endpoint | Devuelve |
+|---|---|
+| `GET /academic/badges` | `{ catalogVersion, issuer, total, badges[] }` — catálogo completo |
+| `GET /academic/students/:studentCode/badges` | `{ studentCode, catalogVersion, issuer, total, earned, badges[] }` — catálogo con `earned`, `earnedAt` y `evidence` resueltos por estudiante |
+
+Los datos salen de `utb-external-api/src/fixtures/badges.json` (10 insignias,
+otorgadas para los tres estudiantes demo). Es una simulación: cuando exista el
+servicio institucional real solo cambia la URL en `UNIVERSITY_API_URL` y el
+consumidor no se toca. `BadgeCategory` de la API externa es el mismo enum del
+modelo local (`PROGRESO`, `RENDIMIENTO`, `HABITO`, `COMPETENCIA`, `IMPACTO_SOCIAL`),
+porque `/logros` filtra por esa taxonomía.
+
+---
+
 ## Integraciones Futuras
 
 - **PROA**: mallas académicas.
 - **Banner**: registro académico oficial.
+- **API institucional de insignias**: sustituir la simulación de `utb-external-api`.
 
 ---
 

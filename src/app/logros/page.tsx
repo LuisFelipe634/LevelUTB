@@ -10,7 +10,10 @@ import {
   TrendingUp,
   Lock,
   CheckCircle,
-  Loader2
+  Loader2,
+  Building2,
+  HardDrive,
+  TriangleAlert
 } from "lucide-react"
 
 interface Badge {
@@ -34,6 +37,14 @@ interface BadgeStats {
   byCategory: Record<string, { total: number; earned: number }>
 }
 
+// De donde salio el catalogo que se esta mostrando. Permite ver en caliente si
+// las insignias vienen del servicio de la universidad o del catalogo local.
+interface BadgeOrigin {
+  source: "prisma" | "http"
+  catalogVersion: string | null
+  degraded: boolean
+}
+
 const categoryConfig: Record<string, { label: string; color: string; bg: string; icon: React.ComponentType<{ className?: string }> }> = {
   PROGRESO: { label: "Progreso", color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-100 dark:bg-blue-900/30", icon: TrendingUp },
   HABITO: { label: "Hábito", color: "text-orange-600 dark:text-orange-400", bg: "bg-orange-100 dark:bg-orange-900/30", icon: Target },
@@ -47,6 +58,7 @@ export default function Logros() {
   const [stats, setStats] = useState<BadgeStats | null>(null)
   const [filter, setFilter] = useState<string>("all")
   const [loading, setLoading] = useState(true)
+  const [origin, setOrigin] = useState<BadgeOrigin | null>(null)
 
   const fetchBadges = async () => {
     try {
@@ -55,6 +67,7 @@ export default function Logros() {
       const data = await response.json()
       setBadges(data.badges)
       setStats(data.stats)
+      setOrigin(data.origin ?? null)
     } catch (error) {
       console.error("Error:", error)
     } finally {
@@ -77,6 +90,16 @@ export default function Logros() {
     return badge.category === filter
   })
 
+  // Configuracion del chip de origen. "degraded" gana: si se pidio el catalogo
+  // institucional y no vino, lo relevante es que se esta viendo el local.
+  const originChip = !origin
+    ? null
+    : origin.degraded
+      ? { label: "Catalogo local (API de la universidad no disponible)", cls: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200", Icon: TriangleAlert }
+      : origin.source === "http"
+        ? { label: `Catalogo de la Universidad${origin.catalogVersion ? ` v${origin.catalogVersion}` : ""}`, cls: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200", Icon: Building2 }
+        : { label: "Catalogo local", cls: "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200", Icon: HardDrive }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -94,6 +117,19 @@ export default function Logros() {
         <p className="text-gray-600 dark:text-gray-400">
           Colecciona insignias por tus logros académicos
         </p>
+        {originChip && (
+          <span
+            title={
+              origin?.degraded
+                ? "Se pidio el catalogo institucional pero no respondio, asi que se muestra el catalogo local."
+                : "Origen del catalogo de insignias que se esta mostrando."
+            }
+            className={`mt-2 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${originChip.cls}`}
+          >
+            <originChip.Icon className="h-3.5 w-3.5" />
+            {originChip.label}
+          </span>
+        )}
       </div>
 
       {/* Stats */}

@@ -15,7 +15,7 @@ src/app/api/
   stats/route.ts                # GET agregados académicos + gamificación
   missions/route.ts             # GET disponibles+estado | POST avance/evidencia
   rewards/route.ts              # GET catálogo+puntos+canjes | POST solicitar canje
-  badges/route.ts               # GET insignias locales + estadísticas por categoría
+  badges/route.ts               # GET catálogo (local o institucional) + stats + origin
   notifications/route.ts        # GET listar | PATCH marcar leída | DELETE borrar
   recommendations/route.ts      # GET generar bajo demanda | PATCH aceptar/descartar
   search/route.ts               # GET ?q= búsqueda global sin tildes
@@ -36,12 +36,19 @@ src/lib/ (dominio usado por las rutas)
   activity.ts        # recordDailyAcademicActivity, recordUserActivity, ACTIVITY_ACTIONS
   missionRules.ts    # computeConsecutiveAccessStreak, countUniqueCompletedMissions (+ tests)
   missionVerification.ts # verifyMission(autoVerify por verificationKey/Value)
+  badgeSource.ts      # BadgeSource, BadgeRecord, BadgeCatalog (contrato de insignias)
+  prismaBadgeSource.ts # Catalogo local: Badge + StudentBadge
+  httpBadgeSource.ts   # Catalogo institucional: GET /academic/students/:code/badges
+  getBadgeSource.ts    # Factory + isExternalBadgesEnabled + isExternalStudentNotFound
   academicSource.ts  # Interfaz AcademicSource + tipos (malla, estudiante, programa)
   getAcademicSource.ts # Factory: Prisma o HTTP según UNIVERSITY_API_ENABLED
   prismaAcademicSource.ts # Origen académico sobre Prisma (comportamiento previo)
   httpAcademicSource.ts   # Origen académico sobre la API externa (:3001)
 
 utb-external-api/    # Servicio FastAPI mock que simula la API de la universidad
+                     #   /academic/students/:code/{enrollments,history,badges}
+                     #   /academic/badges → catálogo de insignias
+                     #   fixtures/badges.json = catálogo y estado por estudiante
 
 src/middleware.ts    # Guard de páginas: sin cookie authjs.session-token -> /login
 prisma/schema.prisma # 22 modelos (fuente de verdad de tablas/enums)
@@ -91,8 +98,10 @@ Convención: `GET` nunca muta salvo registrar actividad diaria idempotente (`/ap
 - `GET`: `{ totalPoints, rewards(isActive), studentRewards, enrolledCourses(periodo actual) }`.
 - `POST { rewardId, courseId }`: valida puntos (`cost`), `maxUses`, que el curso sea del periodo; crea `StudentReward{SOLICITADO, pointsSpent}`.
 
-**`badges/route.ts` (STUDENT)**
-- `GET`: catálogo de insignias activas (`Badge`) con el estado de cada una para el estudiante (`StudentBadge`), más `stats` agregadas (total, obtenidas, porcentaje y desglose por categoría).
+**`badges/route.ts` (autenticado)**
+- `GET`: resuelve el `studentCode` del usuario y pide el catálogo a `getBadgeSource()`. Respuesta: `{ badges[], stats{total,earned,percentage,byCategory}, origin{source,catalogVersion,degraded} }`. Cada badge sale con `id, name, description, icon, category, requiredLevel, pointsRequired, earned, earnedAt, evidence`.
+- Con `UNIVERSITY_API_ENABLED=true` el catálogo viene de la API institucional; si esa no responde **degrada al local** y marca `origin.degraded=true` (a diferencia de `curriculum`/`student`, que cortan con 503). Un 404 externo (estudiante no registrado allá) devuelve catálogo vacío sin degradar.
+- `origin.source` permite auditar de dónde salió la respuesta; la UI lo muestra como chip en `/logros`.
 
 **`notifications/route.ts` (STUDENT/TEACHER)**
 - `GET`: propias ordenadas por fecha. `PATCH { id, isRead }`. `DELETE ?id=`.
@@ -122,6 +131,7 @@ Convención: `GET` nunca muta salvo registrar actividad diaria idempotente (`/ap
 - `academic.ts`: promedio ponderado por créditos, semestre actual por `semesterCode`, tope de créditos por semestre.
 - `streak.ts` + `activity.ts`: racha diaria por `Activity.createdAt` continua (`current/best/activeToday`).
 - `missionVerification.ts`: interpreta `verificationKey` (`APROBAR_CREDITOS_SEMESTRE`, `MEJORA_PROMEDIO`, `RACHA_*`, curso concreto...) con `verificationValue`.
+- `getBadgeSource.ts`: resuelve el origen del catálogo de insignias. `HttpBadgeSource` **lanza** `ExternalApiUnavailableError` en vez de devolver `null` (a diferencia de `httpAcademicSource`): así la ruta no puede confundir "caída" con "catálogo vacío" y degrada explícitamente a `PrismaBadgeSource`.
 - Tests: `npm run test:unit` (`academic.test.ts`, `missionRules.test.ts`).
 
 ## Cómo añadir un endpoint

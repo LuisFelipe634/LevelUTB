@@ -1,0 +1,160 @@
+{
+  "_comment": "Simulacion del catalogo de insignias que entregaria la API real de la UTB. Es un endpoint de ejemplo: sirve para demostrar el flujo completo (catalogo + estado por estudiante) antes de que exista el servicio institucional definitivo. Los campos replican el contrato de Badge del modelo local, mas code (estable) y earned/earnedAt/evidence (lo que el estudiante ya tiene).",
+  "catalogVersion": "2026.2",
+  "issuer": "Universidad Tecnologica de Bolivar",
+  "badges": [
+    {
+      "code": "UTB-EXT-PROG-01",
+      "name": "Fundamentos Completos",
+      "description": "Aprobaste los cursos de Fundamentos de Programacion y Estructuras de Datos con nota minima de 4.0.",
+      "iconUrl": "💻",
+      "category": "PROGRESO",
+      "requiredLevel": 2,
+      "pointsRequired": 800
+    },
+    {
+      "code": "UTB-EXT-PROG-02",
+      "name": "Tercera Cohorte",
+      "description": "Completaste el 50% de los creditos oficiales de tu programa.",
+      "iconUrl": "🧱",
+      "category": "PROGRESO",
+      "requiredLevel": 3,
+      "pointsRequired": 1800
+    },
+    {
+      "code": "UTB-EXT-REND-01",
+      "name": "Cuadro de Honor",
+      "description": "Cerraste un periodo con promedio ponderado igual o superior a 4.5.",
+      "iconUrl": "🏅",
+      "category": "RENDIMIENTO",
+      "requiredLevel": 2,
+      "pointsRequired": null
+    },
+    {
+      "code": "UTB-EXT-REND-02",
+      "name": "Recuperacion Academica",
+      "description": "Subiste 0.5 puntos o mas respecto al promedio con el que entraste al programa.",
+      "iconUrl": "📈",
+      "category": "RENDIMIENTO",
+      "requiredLevel": 3,
+      "pointsRequired": 1200
+    },
+    {
+      "code": "UTB-EXT-HAB-01",
+      "name": "Asistencia Perfecta",
+      "description": "Registraste 100% de asistencia en todos los cursos de un periodo.",
+      "iconUrl": "✅",
+      "category": "HABITO",
+      "requiredLevel": 2,
+      "pointsRequired": 900
+    },
+    {
+      "code": "UTB-EXT-HAB-02",
+      "name": "Disciplina Semanal",
+      "description": "Llevas 8 semanas consecutivas entregando las actividades del curso.",
+      "iconUrl": "📅",
+      "category": "HABITO",
+      "requiredLevel": 3,
+      "pointsRequired": 1500
+    },
+    {
+      "code": "UTB-EXT-COMP-01",
+      "name": "Perfil Tecnico",
+      "description": "Completaste el track opcional de seguridad e infraestructura.",
+      "iconUrl": "🛡️",
+      "category": "COMPETENCIA",
+      "requiredLevel": 4,
+      "pointsRequired": 2200
+    },
+    {
+      "code": "UTB-EXT-COMP-02",
+      "name": "Proyecto de Grado Iniciado",
+      "description": "Registraste tu propuesta de proyecto de grado en el sistema institucional.",
+      "iconUrl": "🚀",
+      "category": "COMPETENCIA",
+      "requiredLevel": 6,
+      "pointsRequired": 8000
+    },
+    {
+      "code": "UTB-EXT-SOC-01",
+      "name": "Monitoria Reconocida",
+      "description": "La universidad te certifico como monitor de un curso durante un periodo.",
+      "iconUrl": "🧑‍🏫",
+      "category": "IMPACTO_SOCIAL",
+      "requiredLevel": 3,
+      "pointsRequired": 1600
+    },
+    {
+      "code": "UTB-EXT-SOC-02",
+      "name": "Grupo de Estudio",
+      "description": "Organizaste o lideraste un grupo de estudio con al menos 4 participantes.",
+      "iconUrl": "🤝",
+      "category": "IMPACTO_SOCIAL",
+      "requiredLevel": 2,
+      "pointsRequired": 1000
+    }
+  ],
+  "studentBadges": {
+    "2019123456": [
+      {
+        "code": "UTB-EXT-PROG-01",
+        "earnedAt": "2025-11-18T14:00:00.000Z",
+        "evidence": "Programacion (4.4) y Estructuras de Datos (4.1)."
+      },
+      {
+        "code": "UTB-EXT-REND-01",
+        "earnedAt": "2026-02-02T14:00:00.000Z",
+        "evidence": "Promedio ponderado 4.7 en el periodo 2025-2."
+      },
+      {
+        "code": "UTB-EXT-HAB-01",
+        "earnedAt": "2026-02-20T14:00:00.000Z",
+        "evidence": null
+      },
+      {
+        "code": "UTB-EXT-COMP-01",
+        "earnedAt": "2026-06-10T14:00:00.000Z",
+        "evidence": "Track de seguridad e infraestructura completado."
+      },
+      {
+        "code": "UTB-EXT-SOC-01",
+        "earnedAt": "2026-07-01T14:00:00.000Z",
+        "evidence": "Monitoria de Taller de Programacion, 25 estudiantes."
+      }
+    ],
+    "2020123456": [
+      {
+        "code": "UTB-EXT-PROG-01",
+        "earnedAt": "2025-09-05T14:00:00.000Z",
+        "evidence": null
+      },
+      {
+        "code": "UTB-EXT-PROG-02",
+        "earnedAt": "2026-03-12T14:00:00.000Z",
+        "evidence": "81 de 162 creditos oficializados."
+      },
+      {
+        "code": "UTB-EXT-REND-02",
+        "earnedAt": "2026-05-08T14:00:00.000Z",
+        "evidence": "Promedio subio de 3.8 a 4.3."
+      },
+      {
+        "code": "UTB-EXT-SOC-02",
+        "earnedAt": "2026-04-19T14:00:00.000Z",
+        "evidence": "Grupo de estudio de 6 participantes durante 8 semanas."
+      }
+    ],
+    "2021123456": [
+      {
+        "code": "UTB-EXT-PROG-01",
+        "earnedAt": "2025-08-14T14:00:00.000Z",
+        "evidence": null
+      },
+      {
+        "code": "UTB-EXT-HAB-01",
+        "earnedAt": "2026-01-30T14:00:00.000Z",
+        "evidence": null
+      }
+    ]
+  }
+}

@@ -41,6 +41,7 @@ const DEMO_HISTORY_GRADES = [4.2, 4.5, 3.9, 4.1, 4.4, 4.0]
 type CourseType = 'OBLIGATORIO' | 'ELECTIVA' | 'LIBRE_ELECCION' | 'GENERAL'
 type RewardCategory = 'EXAMEN' | 'ASISTENCIA' | 'ENTREGA' | 'OTRO'
 type MissionType = 'ACADEMICO' | 'PLANIFICACION' | 'MEJORA_CONTINUA' | 'IMPACTO_SOCIAL' | 'HABITO_ESTUDIO'
+type BadgeCategory = 'PROGRESO' | 'COMPETENCIA' | 'HABITO' | 'IMPACTO_SOCIAL' | 'RENDIMIENTO'
 
 type CourseSeed = { code: string; name: string; credits: number; type: CourseType; prereq: string[] }
 type SemesterSeed = { number: number; courses: CourseSeed[] }
@@ -63,6 +64,150 @@ type MissionSeed = {
   verificationValue?: string
 }
 type StudentProfileRef = { id: string }
+
+// El codigo no existe en el schema (Badge no lo tiene): se usa solo como llave
+// interna del seed para resolver el awarding de las ya obtenidas.
+type BadgeSeed = {
+  code: string
+  name: string
+  description: string
+  iconUrl: string
+  category: BadgeCategory
+  requiredLevel: number | null
+  pointsRequired: number | null
+}
+
+const BADGES_DATA: BadgeSeed[] = [
+  {
+    code: 'UTB-PROG-01',
+    name: 'Primer Semestre',
+    description: 'Aprobaste tu primer semestre completo en la UTB.',
+    iconUrl: '🎓',
+    category: 'PROGRESO',
+    requiredLevel: 1,
+    pointsRequired: null,
+  },
+  {
+    code: 'UTB-PROG-02',
+    name: 'Medio Camino',
+    description: 'Alcanzaste la mitad de los creditos de tu programa.',
+    iconUrl: '🛤️',
+    category: 'PROGRESO',
+    requiredLevel: 3,
+    pointsRequired: 1500,
+  },
+  {
+    code: 'UTB-PROG-03',
+    name: 'Cerca de Graduarse',
+    description: 'Te faltan 20 creditos o menos para graduarte.',
+    iconUrl: '🏁',
+    category: 'PROGRESO',
+    requiredLevel: 5,
+    pointsRequired: 5000,
+  },
+  {
+    code: 'UTB-REND-01',
+    name: 'Promedio Impresionante',
+    description: 'Mantuviste un promedio ponderado igual o superior a 4.5.',
+    iconUrl: '⭐',
+    category: 'RENDIMIENTO',
+    requiredLevel: 2,
+    pointsRequired: null,
+  },
+  {
+    code: 'UTB-REND-02',
+    name: 'Pulso Ascendente',
+    description: 'Mejoraste tu promedio en 0.5 puntos o mas respecto al inicio del periodo.',
+    iconUrl: '📈',
+    category: 'RENDIMIENTO',
+    requiredLevel: 3,
+    pointsRequired: 1200,
+  },
+  {
+    code: 'UTB-REND-03',
+    name: 'Sin Reprobados',
+    description: 'Cerraste un semestre completo sin registrar ninguna materia reprobada.',
+    iconUrl: '🎯',
+    category: 'RENDIMIENTO',
+    requiredLevel: 1,
+    pointsRequired: null,
+  },
+  {
+    code: 'UTB-HAB-01',
+    name: 'Racha de 7 Dias',
+    description: 'Registraste actividad academica durante 7 dias consecutivos.',
+    iconUrl: '🔥',
+    category: 'HABITO',
+    requiredLevel: 2,
+    pointsRequired: 800,
+  },
+  {
+    code: 'UTB-HAB-02',
+    name: 'Estudiante Constante',
+    description: 'Completaste 3 o mas misiones en una misma semana.',
+    iconUrl: '🗓️',
+    category: 'HABITO',
+    requiredLevel: 2,
+    pointsRequired: 700,
+  },
+  {
+    code: 'UTB-COMP-01',
+    name: 'Explorador de la Malla',
+    description: 'Revisaste el catalogo de cursos de al menos tres semestres.',
+    iconUrl: '🧭',
+    category: 'COMPETENCIA',
+    requiredLevel: 1,
+    pointsRequired: null,
+  },
+  {
+    code: 'UTB-COMP-02',
+    name: 'Planificador',
+    description: 'Planeaste tu proximo semestre sin superar el tope de creditos.',
+    iconUrl: '📋',
+    category: 'COMPETENCIA',
+    requiredLevel: 2,
+    pointsRequired: 600,
+  },
+  {
+    code: 'UTB-SOC-01',
+    name: 'Impacto Social',
+    description: 'Completaste una mision de impacto social en tu comunidad.',
+    iconUrl: '🤝',
+    category: 'IMPACTO_SOCIAL',
+    requiredLevel: 3,
+    pointsRequired: 1000,
+  },
+  {
+    code: 'UTB-SOC-02',
+    name: 'Liderazgo',
+    description: 'Ayudaste a al menos dos companeros a desbloquear una insignia.',
+    iconUrl: '🌟',
+    category: 'IMPACTO_SOCIAL',
+    requiredLevel: 4,
+    pointsRequired: 2000,
+  },
+]
+
+// Insignias ya obtenidas por cada estudiante demo, por studentCode. Se dejan
+// bloqueadas algunas a proposito para que /logros muestre ambos estados.
+const AWARDED_BADGES_BY_STUDENT: Record<string, Array<{ code: string; daysAgo: number; evidence: string | null }>> = {
+  '2019123456': [
+    { code: 'UTB-PROG-01', daysAgo: 420, evidence: null },
+    { code: 'UTB-REND-01', daysAgo: 180, evidence: 'Promedio ponderado 4.2 sobre 40 creditos oficializados.' },
+    { code: 'UTB-REND-03', daysAgo: 60, evidence: null },
+    { code: 'UTB-COMP-01', daysAgo: 30, evidence: null },
+    { code: 'UTB-COMP-02', daysAgo: 12, evidence: 'Seleccion de 16 creditos para el proximo periodo.' },
+  ],
+  '2020123456': [
+    { code: 'UTB-PROG-01', daysAgo: 380, evidence: null },
+    { code: 'UTB-PROG-02', daysAgo: 90, evidence: null },
+    { code: 'UTB-HAB-01', daysAgo: 45, evidence: null },
+    { code: 'UTB-COMP-01', daysAgo: 20, evidence: null },
+  ],
+  '2021123456': [
+    { code: 'UTB-PROG-01', daysAgo: 200, evidence: null },
+  ],
+}
 
 // El perfil se crea anidado en el mismo INSERT, asi que no puede faltar; el
 // guard solo existe para que TypeScript lo vea sin castear a mano.
@@ -290,6 +435,10 @@ async function main() {
   await seedThirdStudentHistory(angela.profileId, program.id)
   await approveCurrentCredits(juan.profileId)
 
+  // Las insignias se siembran al final: el awarding se resuelve por studentCode,
+  // asi que los tres perfiles de arriba ya tienen que existir.
+  await seedBadges()
+
   // El docente recibe exactamente las materias donde hay alguien matriculado en
   // el periodo vigente: es el mismo filtro que usa /api/rewards para decidir en
   // qué materias se puede pedir un canje, así que son las únicas por las que le
@@ -405,6 +554,43 @@ async function createCatalog() {
     await prisma.mission.create({ data: missionData })
   }
   console.log('✅ Misiones creadas')
+}
+
+// El codigo no existe en el schema (Badge no lo tiene): se usa solo como llave
+// interna del seed para resolver el awarding de las ya obtenidas.
+async function seedBadges() {
+  const byCode = new Map<string, string>()
+
+  for (const badgeData of BADGES_DATA) {
+    const { code, ...data } = badgeData
+    const badge = await prisma.badge.create({ data })
+    byCode.set(code, badge.id)
+  }
+  console.log('✅ Insignias creadas')
+
+  for (const [studentCode, awards] of Object.entries(AWARDED_BADGES_BY_STUDENT)) {
+    const profile = await prisma.studentProfile.findUnique({
+      where: { studentCode },
+      // StudentBadge.studentId referencia User.id, no StudentProfile.id.
+      select: { userId: true },
+    })
+    if (!profile) continue
+
+    for (const award of awards) {
+      const badgeId = byCode.get(award.code)
+      if (!badgeId) {
+        throw new Error(`AWARDED_BADGES_BY_STUDENT referencia un code inexistente: ${award.code}`)
+      }
+
+      const earnedAt = new Date()
+      earnedAt.setUTCDate(earnedAt.getUTCDate() - award.daysAgo)
+
+      await prisma.studentBadge.create({
+        data: { studentId: profile.userId, badgeId, earnedAt, evidence: award.evidence },
+      })
+    }
+  }
+  console.log('✅ Insignias obtenidas por los estudiantes demo')
 }
 
 async function createDemoStudent(programId: string, passwordHash: string) {

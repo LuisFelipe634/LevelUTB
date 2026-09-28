@@ -1,64 +1,66 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
+import type { BadgeCatalog } from "@/lib/badgeSource"
+import { PrismaBadgeSource } from "@/lib/prismaBadgeSource"
+import { isExternalBadgesEnabled, isExternalStudentNotFound, getBadgeSource } from "@/lib/getBadgeSource"
 
-type BadgeRow = {
-  id: string
-  name: string
-  description: string
-  iconUrl: string
-  category: string
-  requiredLevel: number | null
-  pointsRequired: number | null
+type BadgeStats = {
+  total: number
+  earned: number
+  percentage: number
+  byCategory: Record<string, { total: number; earned: number }>
 }
 
-type EarnedBadgeRow = {
-  badgeId: string
-  earnedAt: Date | null
-  evidence: string | null
-}
+// Las stats se calculan sobre la vista que ya se devuelve (id/icon), no sobre
+// BadgeRecord, asi que basta con lo que el agrupado necesita.
+type SummarizableBadge = { category: string; earned: boolean }
 
-type BadgeView = {
-  id: string
-  name: string
-  description: string
-  icon: string
-  category: string
-  requiredLevel: number | null
-  pointsRequired: number | null
-  progress: null
-  earned: boolean
-  earnedAt: Date | null
-  evidence: string | null
-}
-
-function buildBadgeViews(allBadges: BadgeRow[], earnedBadges: EarnedBadgeRow[]): BadgeView[] {
-  return allBadges.map((badge) => {
-    const earned = earnedBadges.find((eb) => eb.badgeId === badge.id)
-
-    return {
-      id: badge.id,
-      name: badge.name,
-      description: badge.description,
-      icon: badge.iconUrl,
-      category: badge.category,
-      requiredLevel: badge.requiredLevel,
-      pointsRequired: badge.pointsRequired,
-      progress: null,
-      earned: !!earned,
-      earnedAt: earned?.earnedAt || null,
-      evidence: earned?.evidence || null,
-    }
-  })
-}
-
-function summarizeByCategory(badges: BadgeView[]) {
+function summarizeByCategory(badges: SummarizableBadge[]) {
   return badges.reduce((acc, badge) => {
     const bucket = (acc[badge.category] ??= { total: 0, earned: 0 })
     bucket.total++
     if (badge.earned) bucket.earned++
     return acc
   }, {} as Record<string, { total: number; earned: number }>)
+}
+
+function buildStats(badges: SummarizableBadge[]): BadgeStats {
+  const total = badges.length
+  const earned = badges.filter((b) => b.earned).length
+
+  return {
+    total,
+    earned,
+    percentage: total > 0 ? Math.round((earned / total) * 100) : 0,
+    byCategory: summarizeByCategory(badges),
+  }
+}
+
+// Resuelve el catalogo con la degradacion acordada: si la fuente institucional
+// esta activa pero no responde, se sirve el catalogo local en vez de un 503 o un
+// catalogo vacio. La UI recibe "degraded" para poder avisarlo.
+async function loadCatalog(studentCode: string): Promise<BadgeCatalog & { degraded: boolean }> {
+  const source = getBadgeSource()
+
+  if (!isExternalBadgesEnabled()) {
+    return { ...(await source.getStudentBadges(studentCode)), degraded: false }
+  }
+
+  try {
+    return { ...(await source.getStudentBadges(studentCode)), degraded: false }
+  } catch (error) {
+    if (isExternalStudentNotFound(error)) {
+      // Sin registro en la fuente externa: catalogo vacio es la respuesta
+      // correcta, no una caida.
+      console.warn(`[api/badges] estudiante no encontrado en la fuente externa: ${studentCode}`)
+      return { badges: [], source: "http", catalogVersion: null, degraded: false }
+    }
+
+    console.error("[api/badges] fuente externa de insignias no disponible, degrado a local")
+    const local = await new PrismaBadgeSource().getStudentBadges(studentCode)
+    return { ...local, degraded: true }
+  }
 }
 
 export async function GET() {
@@ -69,34 +71,39 @@ export async function GET() {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 })
     }
 
-    const userId = session.user.id as string
-
-    // Obtener todas las insignias disponibles
-    const allBadges = await prisma.badge.findMany({
-      where: { isActive: true },
-      orderBy: { category: "asc" }
+    // El catalogo externo se indexa por studentCode; la identidad sigue en Prisma.
+    const profile = await prisma.studentProfile.findUnique({
+      where: { userId: session.user.id as string },
+      select: { studentCode: true },
     })
 
-    // Obtener insignias que tiene el estudiante
-    const earnedBadges = await prisma.studentBadge.findMany({
-      where: { studentId: userId },
-      include: {
-        badge: true
-      }
-    })
+    if (!profile) {
+      return NextResponse.json({ error: "Perfil de estudiante no encontrado" }, { status: 404 })
+    }
 
-    const badges = buildBadgeViews(allBadges, earnedBadges)
-    const totalBadges = badges.length
-    const earnedCount = badges.filter((b) => b.earned).length
+    const catalog = await loadCatalog(profile.studentCode)
+    const badges = catalog.badges.map((badge) => ({
+      id: badge.code,
+      name: badge.name,
+      description: badge.description,
+      icon: badge.iconUrl,
+      category: badge.category,
+      requiredLevel: badge.requiredLevel,
+      pointsRequired: badge.pointsRequired,
+      progress: null,
+      earned: badge.earned,
+      earnedAt: badge.earnedAt,
+      evidence: badge.evidence,
+    }))
 
     return NextResponse.json({
       badges,
-      stats: {
-        total: totalBadges,
-        earned: earnedCount,
-        percentage: totalBadges > 0 ? Math.round((earnedCount / totalBadges) * 100) : 0,
-        byCategory: summarizeByCategory(badges)
-      }
+      stats: buildStats(badges),
+      origin: {
+        source: catalog.source,
+        catalogVersion: catalog.catalogVersion,
+        degraded: catalog.degraded,
+      },
     })
   } catch (error) {
     console.error("Error fetching badges:", error)

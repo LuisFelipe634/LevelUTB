@@ -37,6 +37,29 @@ const fixtures = JSON.parse(fixturesRaw) as {
   currentPeriod: string;
 };
 
+// Catalogo de insignios en archivo aparte del seed academico: representa un
+// servicio institucional independiente, asi que se puede reemplazar por la API
+// real sin tocar el resto de la simulacion.
+type ExternalBadge = {
+  code: string;
+  name: string;
+  description: string;
+  iconUrl: string;
+  category: string;
+  requiredLevel: number | null;
+  pointsRequired: number | null;
+};
+type ExternalStudentBadge = { code: string; earnedAt: string | null; evidence: string | null };
+
+const badgeCandidates = [join(dirname(fixturesPath), "badges.json"), join(__dirname, "fixtures", "badges.json"), join(process.cwd(), "src", "fixtures", "badges.json")];
+const badgeFixturesPath = badgeCandidates.find((p) => existsSync(p)) ?? join(dirname(fixturesPath), "badges.json");
+const badgeFixtures = JSON.parse(readFileSync(badgeFixturesPath, "utf-8")) as {
+  catalogVersion: string;
+  issuer: string;
+  badges: ExternalBadge[];
+  studentBadges: Record<string, ExternalStudentBadge[]>;
+};
+
 const app = Fastify({ logger: true });
 
 await app.register(cors, {
@@ -58,6 +81,50 @@ app.addHook("onRequest", async (request: FastifyRequest, reply: FastifyReply) =>
 
 app.get("/health", async () => {
   return { ok: true, uptime: process.uptime(), currentPeriod: fixtures.currentPeriod, program: fixtures.program.code };
+});
+
+// --- Insignias institucionales -------------------------------------------------
+// Endpoint de ejemplo. Cuando exista la API real de la UTB, este servicio solo
+// tiene que desaparecer y el consumidor (src/lib/httpBadgeSource.ts) queda igual.
+
+app.get("/academic/badges", async () => {
+  return {
+    catalogVersion: badgeFixtures.catalogVersion,
+    issuer: badgeFixtures.issuer,
+    total: badgeFixtures.badges.length,
+    badges: badgeFixtures.badges,
+  };
+});
+
+// Une el catalogo completo con lo que el estudiante ya tiene: las que no estan
+// en studentBadges llegan con earned=false, que es como la UI las muestra
+// bloqueadas.
+app.get("/academic/students/:studentCode/badges", async (request: FastifyRequest<{ Params: { studentCode: string } }>, reply: FastifyReply) => {
+  const { studentCode } = request.params;
+  const student = fixtures.students.find((s) => s.studentCode === studentCode);
+  if (!student) return reply.code(404).send({ error: "Estudiante no encontrado" });
+
+  const earned = badgeFixtures.studentBadges[studentCode] ?? [];
+  const earnedByCode = new Map(earned.map((b) => [b.code, b]));
+
+  const badges = badgeFixtures.badges.map((badge) => {
+    const record = earnedByCode.get(badge.code);
+    return {
+      ...badge,
+      earned: !!record,
+      earnedAt: record?.earnedAt ?? null,
+      evidence: record?.evidence ?? null,
+    };
+  });
+
+  return {
+    studentCode,
+    catalogVersion: badgeFixtures.catalogVersion,
+    issuer: badgeFixtures.issuer,
+    total: badges.length,
+    earned: badges.filter((b) => b.earned).length,
+    badges,
+  };
 });
 
 app.get("/academic/students/:studentCode", async (request: FastifyRequest<{ Params: { studentCode: string } }>, reply: FastifyReply) => {
