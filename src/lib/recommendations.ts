@@ -240,6 +240,26 @@ async function saveRecommendations(studentProfileId: string, recommendations: Re
   }
 }
 
+function generateAllRecommendations(
+  profile: Awaited<ReturnType<typeof fetchStudentData>>["profile"],
+  allCourses: Awaited<ReturnType<typeof fetchStudentData>>["allCourses"],
+  status: CourseStatus,
+  unlockedCourses: ReturnType<typeof findUnlockedCourses>,
+  bottleneckCourses: ReturnType<typeof findBottleneckCourses>
+): RecommendationItem[] {
+  const recommendations: RecommendationItem[] = []
+
+  addBottleneckRecommendations(bottleneckCourses, recommendations)
+  addFailedCourseRecommendations(status.failed, allCourses, status.approved, recommendations)
+  addElectiveRecommendations(unlockedCourses, recommendations)
+  addNextSemesterRecommendations(unlockedCourses, bottleneckCourses, status.failed, recommendations)
+  addLowGpaRecommendation(profile, recommendations)
+  addCreditFillRecommendation(profile, unlockedCourses, recommendations)
+  addFallbackRecommendation(unlockedCourses, recommendations)
+
+  return recommendations
+}
+
 /**
  * Generates smart recommendations for a student based on:
  * - Which prerequisites they've completed (unlocked courses)
@@ -256,15 +276,7 @@ export async function generateRecommendations(studentProfileId: string): Promise
   const unlockedCourses = findUnlockedCourses(allCourses, status, profile.currentSemester)
   const bottleneckCourses = findBottleneckCourses(unlockedCourses)
 
-  const recommendations: RecommendationItem[] = []
-
-  addBottleneckRecommendations(bottleneckCourses, recommendations)
-  addFailedCourseRecommendations(status.failed, allCourses, status.approved, recommendations)
-  addElectiveRecommendations(unlockedCourses, recommendations)
-  addNextSemesterRecommendations(unlockedCourses, bottleneckCourses, status.failed, recommendations)
-  addLowGpaRecommendation(profile, recommendations)
-  addCreditFillRecommendation(profile, unlockedCourses, recommendations)
-  addFallbackRecommendation(unlockedCourses, recommendations)
+  const recommendations = generateAllRecommendations(profile, allCourses, status, unlockedCourses, bottleneckCourses)
 
   await saveRecommendations(studentProfileId, recommendations)
 }
