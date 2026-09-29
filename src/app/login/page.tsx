@@ -145,12 +145,6 @@ export default function LoginPage() {
 
           {/* Demo Access */}
           <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-            <p className="text-center text-sm text-gray-500 dark:text-gray-400 mb-3">
-              ¿No tienes cuenta?{" "}
-              <a href="/registro" className="text-blue-600 hover:underline font-medium">
-                Regístrate con tu correo @utb.edu.co
-              </a>
-            </p>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <button
                 type="button"
