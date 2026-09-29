@@ -13,7 +13,7 @@ export const ACTIVITY_ACTIONS = {
 
 export type ActivityAction = (typeof ACTIVITY_ACTIONS)[keyof typeof ACTIVITY_ACTIONS] | string
 
-export async function recordUserActivity(
+export function recordUserActivity(
   userId: string,
   action: ActivityAction,
   details: Prisma.InputJsonValue = {}
