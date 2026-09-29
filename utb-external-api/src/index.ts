@@ -79,7 +79,7 @@ app.addHook("onRequest", async (request: FastifyRequest, reply: FastifyReply) =>
   }
 });
 
-app.get("/health", async () => {
+app.get("/health", () => {
   return { ok: true, uptime: process.uptime(), currentPeriod: fixtures.currentPeriod, program: fixtures.program.code };
 });
 
@@ -87,7 +87,7 @@ app.get("/health", async () => {
 // Endpoint de ejemplo. Cuando exista la API real de la UTB, este servicio solo
 // tiene que desaparecer y el consumidor (src/lib/httpBadgeSource.ts) queda igual.
 
-app.get("/academic/badges", async () => {
+app.get("/academic/badges", () => {
   return {
     catalogVersion: badgeFixtures.catalogVersion,
     issuer: badgeFixtures.issuer,
@@ -99,7 +99,7 @@ app.get("/academic/badges", async () => {
 // Une el catalogo completo con lo que el estudiante ya tiene: las que no estan
 // en studentBadges llegan con earned=false, que es como la UI las muestra
 // bloqueadas.
-app.get("/academic/students/:studentCode/badges", async (request: FastifyRequest<{ Params: { studentCode: string } }>, reply: FastifyReply) => {
+app.get("/academic/students/:studentCode/badges", (request: FastifyRequest<{ Params: { studentCode: string } }>, reply: FastifyReply) => {
   const { studentCode } = request.params;
   const student = fixtures.students.find((s) => s.studentCode === studentCode);
   if (!student) return reply.code(404).send({ error: "Estudiante no encontrado" });
@@ -129,7 +129,7 @@ app.get("/academic/students/:studentCode/badges", async (request: FastifyRequest
   };
 });
 
-app.get("/academic/students/:studentCode", async (request: FastifyRequest<{ Params: { studentCode: string } }>, reply: FastifyReply) => {
+app.get("/academic/students/:studentCode", (request: FastifyRequest<{ Params: { studentCode: string } }>, reply: FastifyReply) => {
   const { studentCode } = request.params;
   const student = fixtures.students.find((s) => s.studentCode === studentCode);
   if (!student) return reply.code(404).send({ error: "Estudiante no encontrado" });
@@ -138,7 +138,7 @@ app.get("/academic/students/:studentCode", async (request: FastifyRequest<{ Para
   return rest;
 });
 
-app.get("/academic/students/:studentCode/enrollments", async (request: FastifyRequest<{ Params: { studentCode: string }; Querystring: { period?: string } }>, reply: FastifyReply) => {
+app.get("/academic/students/:studentCode/enrollments", (request: FastifyRequest<{ Params: { studentCode: string }; Querystring: { period?: string } }>, reply: FastifyReply) => {
   const { studentCode } = request.params;
   const { period } = request.query;
   const student = fixtures.students.find((s) => s.studentCode === studentCode);
@@ -148,7 +148,7 @@ app.get("/academic/students/:studentCode/enrollments", async (request: FastifyRe
   return enrollments;
 });
 
-app.get("/academic/students/:studentCode/history", async (request: FastifyRequest<{ Params: { studentCode: string } }>, reply: FastifyReply) => {
+app.get("/academic/students/:studentCode/history", (request: FastifyRequest<{ Params: { studentCode: string } }>, reply: FastifyReply) => {
   const { studentCode } = request.params;
   const student = fixtures.students.find((s) => s.studentCode === studentCode);
   if (!student) return reply.code(404).send({ error: "Estudiante no encontrado" });
@@ -164,7 +164,7 @@ app.get("/academic/students/:studentCode/history", async (request: FastifyReques
     }));
 });
 
-app.get("/academic/programs/:code", async (request: FastifyRequest<{ Params: { code: string } }>, reply: FastifyReply) => {
+app.get("/academic/programs/:code", (request: FastifyRequest<{ Params: { code: string } }>, reply: FastifyReply) => {
   const { code } = request.params;
   if (code.toUpperCase() !== fixtures.program.code) {
     return reply.code(404).send({ error: "Programa no encontrado" });
@@ -172,7 +172,7 @@ app.get("/academic/programs/:code", async (request: FastifyRequest<{ Params: { c
   return fixtures.program;
 });
 
-app.get("/academic/programs/:code/courses", async (request: FastifyRequest<{ Params: { code: string } }>, reply: FastifyReply) => {
+app.get("/academic/programs/:code/courses", (request: FastifyRequest<{ Params: { code: string } }>, reply: FastifyReply) => {
   const { code } = request.params;
   if (code.toUpperCase() !== fixtures.program.code) {
     return reply.code(404).send({ error: "Programa no encontrado" });
@@ -194,7 +194,7 @@ app.get("/academic/programs/:code/courses", async (request: FastifyRequest<{ Par
   return courses;
 });
 
-app.get("/academic/teacher/:teacherId/courses", async (request: FastifyRequest<{ Querystring: { period?: string } }>) => {
+app.get("/academic/teacher/:teacherId/courses", (request: FastifyRequest<{ Querystring: { period?: string } }>) => {
   const { period } = request.query as { period?: string };
   let courses = fixtures.teacherCourses as Array<{ courseCode: string; period: string }>;
   if (period) courses = courses.filter((c) => c.period === period);
