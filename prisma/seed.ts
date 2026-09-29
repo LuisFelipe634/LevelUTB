@@ -773,7 +773,7 @@ async function createSecondTeacherUser(passwordHash: string) {
  * actual). Es el conjunto que /api/rewards ofrece para canjear, así que el que el
  * docente necesita tener asignado para ver las solicitudes.
  */
-async function findCurrentCourses() {
+function findCurrentCourses() {
   return prisma.course.findMany({
     where: {
       code: { in: ASSIGNED_COURSE_CODES },
