@@ -41,7 +41,7 @@ type VerificationContext = {
   approvedCourseIds: ReadonlySet<string>
 }
 
-type VerificationHandler = (context: VerificationContext) => Promise<VerificationResult>
+type VerificationHandler = (context: VerificationContext) => VerificationResult | Promise<VerificationResult>
 
 export function failed(message: string, progress = 0): VerificationResult {
   return { passed: false, progress, message }
@@ -173,7 +173,7 @@ const verifiers: Record<string, VerificationHandler> = {
     )
   },
 
-  APROBAR_CREDITOS_SEMESTRE: async ({ profile, currentPeriod, verificationValue }) => {
+  APROBAR_CREDITOS_SEMESTRE: ({ profile, currentPeriod, verificationValue }) => {
     const target = Number(verificationValue) || 0
     // Solo UNIVERSITY cuenta: los MANUAL (auto-selección del estudiante)
     // no otorgan créditos verificables hasta aval docente/PROA.
@@ -197,7 +197,7 @@ const verifiers: Record<string, VerificationHandler> = {
     )
   },
 
-  MEJORAR_PROMEDIO: async ({ profile, verificationValue, metadata }) => {
+  MEJORAR_PROMEDIO: ({ profile, verificationValue, metadata }) => {
     const improvement = Number(verificationValue) || 0.5
     const currentAverage = getAverageGrade(
       profile.academicHistory,
@@ -218,7 +218,7 @@ const verifiers: Record<string, VerificationHandler> = {
     )
   },
 
-  CERO_REPROBADOS: async ({ profile, currentPeriod }) => {
+  CERO_REPROBADOS: ({ profile, currentPeriod }) => {
     const failedInPeriod = profile.enrollments.filter(
       (enrollment) => enrollment.status === "REPROBADO" && enrollment.semesterCode === currentPeriod
     )
@@ -262,7 +262,7 @@ const verifiers: Record<string, VerificationHandler> = {
     )
   },
 
-  AVANZAR_SEMESTRE: async ({ profile, approvedCredits }) => {
+  AVANZAR_SEMESTRE: ({ profile, approvedCredits }) => {
     const required = profile.currentSemester * CREDITS_PER_SEMESTER
 
     if (approvedCredits >= required) {
