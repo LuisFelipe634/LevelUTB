@@ -21,9 +21,7 @@ const DEMO_CURRENT_SEMESTER = 6
 const SARA_CURRENT_SEMESTER = 8
 const ANGELA_CURRENT_SEMESTER = 3
 
-// Materias donde se liga a los estudiantes en el periodo actual (ver
-// linkCurrentEnrollments). Las asignaciones del docente se derivan de las
-// matriculas vigentes, no de esta lista.
+// Las cuatro materias demo que comparte el docente con los estudiantes demo.
 const ASSIGNED_COURSE_CODES = ['H01A', 'M01A', 'C02A', 'C04A']
 
 // Unica materia del segundo docente, para comprobar el filtro por materia:
@@ -439,11 +437,14 @@ async function main() {
   // asi que los tres perfiles de arriba ya tienen que existir.
   await seedBadges()
 
-  // El docente recibe exactamente las materias donde hay alguien matriculado en
-  // el periodo vigente: es el mismo filtro que usa /api/rewards para decidir en
-  // qué materias se puede pedir un canje, así que son las únicas por las que le
-  // pueden llegar solicitudes por revisar. Se derivan después de sembrar las
-  // matrículas de los tres estudiantes para que ningún semestre quede fuera.
+  // Primero se enlazan las cuatro matrículas demo para que las asignaciones del
+  // profesor coincidan exactamente con los cursos de sus estudiantes.
+  await linkCurrentEnrollments({
+    juan: { id: juan.profileId },
+    sara: { id: sara.profileId },
+    angela: { id: angela.profileId },
+  })
+
   const currentCourses = await findCurrentCourses()
 
   const teacher = await createTeacherUser(passwordHash)
@@ -457,13 +458,7 @@ async function main() {
     currentCourses.filter((course) => course.code === SECOND_TEACHER_COURSE_CODE)
   )
 
-  await linkCurrentEnrollments({
-    juan: { id: juan.profileId },
-    sara: { id: sara.profileId },
-    angela: { id: angela.profileId },
-  })
-
-  console.log('✅ Cursos y estudiantes demo asignados al docente')
+  console.log('✅ Cuatro cursos y estudiantes demo asignados al docente')
 
   console.log('🎉 Seed completado exitosamente!')
 }
@@ -781,6 +776,7 @@ async function createSecondTeacherUser(passwordHash: string) {
 async function findCurrentCourses() {
   return prisma.course.findMany({
     where: {
+      code: { in: ASSIGNED_COURSE_CODES },
       enrollments: {
         some: { status: 'CURSANDO', source: 'UNIVERSITY', semesterCode: CURRENT_PERIOD },
       },
