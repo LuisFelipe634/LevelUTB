@@ -15,7 +15,7 @@ src/app/api/
   stats/route.ts                # GET agregados académicos + gamificación
   missions/route.ts             # GET disponibles+estado | POST avance/evidencia
   rewards/route.ts              # GET catálogo+puntos+canjes | POST solicitar canje
-  badges/route.ts               # GET catálogo (local o institucional) + stats + origin
+  badges/route.ts               # GET catálogo de insignias + origin para tarjetas base/Plus
   notifications/route.ts        # GET listar | PATCH marcar leída | DELETE borrar
   recommendations/route.ts      # GET generar bajo demanda | PATCH aceptar/descartar
   search/route.ts               # GET ?q= búsqueda global sin tildes
@@ -45,7 +45,7 @@ src/lib/ (dominio usado por las rutas)
   prismaAcademicSource.ts # Origen académico sobre Prisma (comportamiento previo)
   httpAcademicSource.ts   # Origen académico sobre la API externa (:3001)
 
-utb-external-api/    # Servicio FastAPI mock que simula la API de la universidad
+utb-external-api/    # Servicio Fastify mock que simula la API de la universidad
                      #   /academic/students/:code/{enrollments,history,badges}
                      #   /academic/badges → catálogo de insignias
                      #   fixtures/badges.json = catálogo y estado por estudiante

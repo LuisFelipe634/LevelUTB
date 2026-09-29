@@ -16,8 +16,8 @@ Plataforma web gamificada para que el estudiante de la Universidad Tecnológica 
 
 | Rol | Interés |
 |---|---|
-| Estudiante | Registrarse con `@utb.edu.co`, ver progreso, misiones, logros, recompensas, estadísticas y perfil |
-| Docente | Acompañar estudiantes, revisar misiones y canjes, enviar rutas (`/docentes`, `/perfil-docente`). Alta solo por ADMIN, sin auto-registro |
+| Estudiante | Registrarse con `@utb.edu.co`, ver progreso, misiones, insignias, recompensas, estadísticas y perfil |
+| Docente | Acompañar estudiantes, revisar misiones y canjes, consultar insignias (`/docentes`, `/docentes/insignias`, `/perfil-docente`). Alta solo por ADMIN, sin auto-registro |
 | ADMIN (nuevo) | Crear cuentas docente vía `POST /api/admin/teachers`. Bootstrap pendiente (ver §11) |
 | UTB (institución) | Seguimiento académico, alertas de riesgo, fuente PROA/Banner vía `AllowedStudent` + `scripts/import-proa.ts` |
 | Equipo de desarrollo | Monolito Next.js simple de operar: un deploy + PostgreSQL |
@@ -45,7 +45,7 @@ Plataforma web gamificada para que el estudiante de la Universidad Tecnológica 
 | Correo | `RESEND_API_KEY` (real) → `SMTP_HOST` (solo log estructurado, nodemailer pendiente) → `console-dev` (solo no-prod). En prod sin proveedor: error 500 controlado | `src/lib/emailProvider.ts`, `.env.example` |
 | Password | Mínimo 8 caracteres, 1 mayúscula y 1 número (`validatePassword`); hash bcrypt 12 en registro | `src/lib/institutionalEmail.ts` |
 | Fuente académica | Desacoplada tras `AcademicSource`: `PrismaAcademicSource` (por defecto) o `HttpAcademicSource` según `UNIVERSITY_API_ENABLED=true` + `UNIVERSITY_API_URL` | `src/lib/getAcademicSource.ts`, `.env.example` |
-| Despliegue | `docker compose up -d` (3 servicios: `app`, `db` PostgreSQL 16, `external-academic-api`). Alternativa local Node + PostgreSQL vía `./setup.sh` (solo Linux/macOS) | `docker-compose.yml`, `Dockerfile`, `README.md` §Instalación |
+| Despliegue | `docker compose up --build -d` (3 servicios: `app`, `db` PostgreSQL 16, `external-academic-api`). Alternativa local Node + PostgreSQL vía `./setup.sh` (solo Linux/macOS) | `docker-compose.yml`, `Dockerfile`, `README.md` §Instalación |
 | Runtime | Node.js 20 en imagen `node:20-alpine`. Fuera de Docker: Node.js 18+, `npm run dev/build/start` | `Dockerfile`, `README.md`, `setup.sh` |
 | Datos iniciales | Seed base único `prisma/seed.ts` (ISCO 2019: 10 semestres, 55 cursos, 162 créditos). Destructivo: 22 `deleteMany()`. En Docker solo se ejecuta si la tabla `users` está vacía | `prisma/seed.ts`, `prisma/seed-if-empty.ts` |
 | Import académico | CSV PROA/Banner → `AllowedStudent` (`email,studentCode,programCode,admissionYear,fullName?`) | `scripts/import-proa.ts`, `npm run db:import-proa` |
@@ -119,7 +119,7 @@ flowchart TB
 | Registro institucional | `api/auth/request-code/route.ts`, `api/auth/verify-code/route.ts`, `lib/institutionalEmail|emailProvider|rateLimit.ts` | OTP SHA-256 15 min/un solo uso/5 intentos, rate-limit 5/h y 10/h, JIT `User+StudentProfile+Notification` |
 | Admin | `api/admin/teachers/route.ts` | Alta docente solo `ADMIN` (bcrypt 12). Sin auto-registro `TEACHER` |
 | Estudiante | `api/student`, `api/curriculum`, `api/stats` | Perfil+racha, malla con estados por prerrequisito, agregados académicos. `student` y `curriculum` leen vía `getAcademicSource()` |
-| Gamificación | `api/missions`, `api/badges` | Misiones manuales/automáticas; insignias con catálogo intercambiable (Prisma o API institucional) y estadísticas por categoría |
+| Gamificación | `api/missions`, `api/badges` | Misiones manuales/automáticas; panel de insignias base/Plus con catálogo intercambiable (Prisma o API institucional) |
 | Recompensas | `api/rewards`, `api/teacher/rewards` | Catálogo, solicitud `{rewardId, courseId}` (`@@unique[studentId,rewardId,courseId]`, pendiente por curso, débito `CANJE_RECOMPENSA`), aprobación docente |
 | Acompañamiento | `api/teacher`, `api/teacher/notify` | Estudiantes por curso del periodo, revisión de misiones, ruta recomendada + `Activity` |
 | Transversales | `api/notifications`, `api/recommendations`, `api/search` | Notificaciones, motor de recomendaciones, búsqueda sin tildes |
@@ -136,12 +136,12 @@ flowchart TB
 | `/dashboard` | `/api/student`, `/stats`, `/missions`, `/notifications` | Resumen agregado |
 | `/malla` | `GET/POST /api/curriculum` | Estados `APROBADO/EN_CURSO/BLOQUEADO/DISPONIBLE`, selección del periodo (crea `CURSANDO MANUAL`) |
 | `/misiones` | `GET/POST /api/missions` | Evidencia, estados `PENDIENTE→…→VERIFICADA/RECHAZADA` |
-| `/logros` | `GET /api/badges` | Progreso, categorías, obtenidas/bloqueadas + chip del origen del catálogo |
+| `/logros` | `GET /api/badges` | Tarjetas de cuatro categorías base y sus variantes Plus + chip del origen del catálogo |
 | `/recompensas` | `GET/POST /api/rewards` | Canje atado a `courseId`, estados `SOLICITADO→APROBADO→USADO/EXPIRADO` |
 | `/estadisticas` | `GET /api/stats` | Tendencia y distribución por semestre |
 | `/notificaciones` | `GET/PATCH/DELETE /api/notifications` | Marcar leída, seguir `link` |
 | `/perfil` | `GET /api/student` | Resumen académico, nivel e insignias recientes |
-| `/docentes`, `/perfil-docente` | `/api/teacher*` | Revisar misión/canje, enviar ruta |
+| `/docentes`, `/docentes/insignias`, `/perfil-docente` | `/api/teacher*` | Cursos interactivos, insignias por categoría, revisar misión/canje y enviar ruta |
 
 ---
 
@@ -252,15 +252,15 @@ flowchart LR
 
 | Elemento | Detalle |
 |---|---|
-| Build | `docker compose up -d`. Imagen `node:20-alpine`; no requiere Node ni PostgreSQL en el host. El `.env` se inyecta por `env_file` en runtime, nunca horneado en la imagen (`.dockerignore`) |
+| Build | `docker compose up --build -d`. Imagen `node:20-alpine`; no requiere Node ni PostgreSQL en el host. El `.env` se inyecta por `env_file` en runtime, nunca horneado en la imagen (`.dockerignore`) |
 | Servicios | `app` :3000 · `db` PostgreSQL 16 :5432 (volumen `utb-gamificacion_pgdata`, sobrevive a `down`) · `external-academic-api` :3001 |
 | Orden de arranque | `app` espera `db` healthy. Dentro: `prisma db push` → `db:seed-if-empty` → `npm run dev` |
 | Seed en arranque | `prisma/seed-if-empty.ts` siembra **solo si `users` está vacía**; `seed.ts` es destructivo (22 `deleteMany()`). `SEED_IF_EMPTY=false` lo desactiva. Así un equipo nuevo levanta con datos y nadie pierde los suyos en un `up` posterior |
 | Config | `.env` (plantilla `.env.example`): `DATABASE_URL`, `NEXTAUTH_SECRET/URL`, `RESEND_API_KEY` o `SMTP_HOST/PORT/USER/PASS`, `EMAIL_FROM`, `ADMIN_EMAIL`, `UNIVERSITY_API_URL/KEY/ENABLED` |
 | DB (fuera de Docker) | `db:generate` → `db:push` → `db:seed` → (`db:import-proa ./proa.csv`, `db:studio`) |
-| Instalación nueva | Docker: `cp .env.example .env` + `docker compose up -d`. Local: `./setup.sh` (Node vía nvm, Postgres, `.env`, push+seed) o `--skip-db`; solo Linux/macOS. `setup.sh` aún no genera las vars de correo/ADMIN (ver §11) |
+| Instalación nueva | Docker: `cp .env.example .env` + `docker compose up --build -d`. Local: `./setup.sh` (Node vía nvm, Postgres, `.env`, push+seed) o `--skip-db`; solo Linux/macOS. `setup.sh` aún no genera las vars de correo/ADMIN (ver §11) |
 | Choke point despliegue | Un PostgreSQL local en el 5432 choca con el puerto publicado del contenedor. Detenerlo o remapear el puerto en `docker-compose.yml` |
-| Credenciales seed | `demo@utb.edu.co/demo123`, `demo2@utb.edu.co/demo1234`, `juanito@utb.edu.co/demo1234`, `docente@utb.edu.co/demo123` (datos demo con inconsistencias, ver §11) |
+| Credenciales seed | `demo@utb.edu.co/demo123` (Juan Pérez), `demo2@utb.edu.co/demo1234` (Sara Peña), `juanito@utb.edu.co/demo1234` (Angela Lemus), `docente@utb.edu.co/demo123` (María González con H01A, M01A, C02A y C04A) |
 
 ---
 
@@ -360,7 +360,7 @@ flowchart LR
 | Seed demo inconsistente | `juanito@utb.edu.co` → "Angela Lemus" (nombre que no corresponde al correo) | `seed.ts:320,375,427`, `README.md:302` | Renombrar a `angela.lemus@` o cambiar el nombre a uno coherente con el alias |
 | Typo `RUTA_ACademica` fosilizado | Enum + código + migración histórica con mayúscula intermedia | `schema.prisma:452`, `recommendations.ts:5,158`, `migrations/..._add_rewards/migration.sql:35` | Migración de rename `RUTA_ACademica→RUTA_ACADEMICA` + alias temporal |
 | Cobertura solo unitaria de `lib` | Sin tests de `request-code/verify-code`, canje, `curriculum`, `teacher`; regresiones silenciosas | `test:unit` solo `src/lib/**/*.test.ts` | Añadir tests de integración API (OTP, JIT, canje `maxUses`, `MANUAL`) |
-| 7 warnings `npm run lint` | `<img>` en `logros`/`Sidebar`, vars sin uso en `Header` | Salida `npm run lint` | Migrar a `next/image`, limpiar `Header.tsx` |
+| 6 warnings `npm run lint` | `<img>` en `Sidebar`, vars sin uso en `Header` | Salida `npm run lint` | Migrar a `next/image`, limpiar `Header.tsx` |
 | `setup.sh` desactualizado | No genera vars de correo/ADMIN ni ejecuta `db:import-proa` | `setup.sh`, `.env.example:9-17` | Extender setup con prompts Resend/SMTP + `ADMIN_EMAIL` |
 | `getCurrentSemester` incluye `MANUAL` | Auto-selección puede anclar semestre actual ficticio | `academic.ts:39-44` | Filtrar `source===UNIVERSITY` para semestre oficial; mostrar "planeado" aparte |
 
@@ -386,7 +386,7 @@ flowchart LR
 | `code` vs `named` | `parse(email)`: `code` = local-part numérico 8-10 dígitos (da `studentCode` directo); `named` = nombre (requiere allowlist o código manual) |
 | `MANUAL` / `UNIVERSITY` | `Enrollment.source`: auto-selección del estudiante vs registro oficial; solo `UNIVERSITY` cuenta para métricas verificables |
 | Misión | Reto (`ACADEMICO, PLANIFICACION, MEJORA_CONTINUA, HABITO_ESTUDIO, IMPACTO_SOCIAL`); `StudentMission.status`: `PENDIENTE→EN_PROGRESO→EN_REVISION→COMPLETADA/VERIFICADA/RECHAZADA` |
-| Insignia | `Badge.category`: `PROGRESO, RENDIMIENTO, HABITO, COMPETENCIA, IMPACTO_SOCIAL`. El catálogo es intercambiable: `BADGES_DATA` en el seed (local) o `fixtures/badges.json` en `utb-external-api` (institucional), con el mismo `BadgeCategory` para que los filtros de `/logros` sirvan en ambos |
+| Insignia | Panel base/Plus con `Badge.category`: `PROGRESO, HABITO, COMPETENCIA, IMPACTO_SOCIAL`. El catálogo externo contiene ocho insignias: cuatro categorías base y cuatro variantes Plus; el origen se intercambia entre `PrismaBadgeSource` y `HttpBadgeSource` |
 | Recompensa / canje | `Reward.category`: `EXAMEN, ASISTENCIA, ENTREGA, OTRO`; débito `PointSource.CANJE_RECOMPENSA`; `StudentReward.status`: `SOLICITADO→APROBADO/RECHAZADO→USADO/EXPIRADO`; unicidad por `(studentId, rewardId, courseId)` |
 | Racha | Días consecutivos con `Activity`; `{current, best, activeToday}` |
 | Nivel | 1 Novato (0) · 2 Aprendiz (500) · 3 Explorador (1500) · 4 Avanzado (3000) · 5 Maestro (5000) · 6 Leyenda (8000) |

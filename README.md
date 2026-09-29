@@ -55,7 +55,7 @@ Next.js App Router (src/app/layout.tsx -> AppShell -> Sidebar/Header)
 | Dominio | `src/lib/` | `academic.ts` (promedio, semestre actual, tope créditos), `recommendations.ts`, `streak.ts`, `activity.ts` (`ACTIVITY_ACTIONS`, racha diaria), `missionRules.ts` + `missionVerification.ts` (auto-verificación), `getBadgeSource.ts` (origen del catálogo de insignias). |
 | Persistencia | `src/lib/prisma.ts` | Singleton `PrismaClient` + `PrismaPg`. En dev se reutiliza vía `globalThis`. |
 | Modelo | `prisma/schema.prisma` | 22 modelos: usuarios, malla, progreso, gamificación, recompensas, notificaciones, riesgo. |
-| Datos | `prisma/seed.ts` | Seed base (programa ISCO 2019, 10 semestres, 55 cursos, 162 créditos, niveles, misiones, 12 insignias + awarding demo, rewards + demo@utb.edu.co). |
+| Datos | `prisma/seed.ts` | Seed base (programa ISCO 2019, 10 semestres, 55 cursos, 162 créditos, niveles, misiones, recompensas y usuarios demo). |
 
 ### Catálogo de APIs
 
@@ -64,14 +64,14 @@ Next.js App Router (src/app/layout.tsx -> AppShell -> Sidebar/Header)
 | `/api/auth/[...nextauth]` | GET, POST | público | Login/logout NextAuth Credentials. |
 | `/api/student` | GET | STUDENT | Perfil + stats + racha + insignias recientes (registra `ACADEMIC_DAILY_ACTIVITY`). |
 | `/api/curriculum` | GET, POST | STUDENT | GET malla por semestre con estado (aprobado/en curso/bloqueado/disponible), prerrequisitos y créditos. POST selección de cursos del periodo. |
-| `/api/stats` | GET | STUDENT | Créditos aprobados/totales, promedio (`academic.ts`), avance por semestre, puntos/nivel, tendencia. |
+| `/api/stats` | GET | STUDENT | Créditos aprobados/totales, promedio (`academic.ts`), avance por semestre, puntos/nivel, tendencia e insignias obtenidas. |
 | `/api/missions` | GET, POST | STUDENT | GET disponibles (por `level`) + estado del estudiante. POST crear/avanzar con `evidence`; si `autoVerify` usa `missionVerification.ts`, si no queda `EN_REVISION`. |
 | `/api/rewards` | GET, POST | STUDENT | GET catálogo activo + puntos totales + canjes + cursos del periodo actual para elegir `courseId`. POST solicitar canje `{ rewardId, courseId }` (descuenta puntos, estado `SOLICITADO`). |
-| `/api/badges` | GET | STUDENT | Catálogo de insignias con estado por estudiante + estadísticas agregadas (total, obtenidas, % y desglose por categoría). El origen se resuelve con `getBadgeSource()` y la respuesta incluye `origin{source, catalogVersion, degraded}`. |
+| `/api/badges` | GET | STUDENT | Catálogo de insignias para el panel de tarjetas base y Plus. El origen se resuelve con `getBadgeSource()` y la respuesta incluye `origin{source, catalogVersion, degraded}`. |
 | `/api/notifications` | GET, PATCH, DELETE | ambos | Listar, marcar leída (`isRead`), borrar. Tipos: `INFO, WARNING, ALERTA_RIESGO, LOGRO_OBTENIDO, MISION_DISPONIBLE, RECORDATORIO, SOLICITUD_RECOMPENSA`. |
 | `/api/recommendations` | GET, PATCH | STUDENT | GET genera bajo demanda con `generateRecommendations()`. PATCH aceptar/descartar (`isAccepted`, `isRead`). |
 | `/api/search` | GET `?q=` | ambos | Búsqueda global (cursos, misiones, insignias) insensible a tildes. |
-| `/api/teacher` | GET, PATCH | TEACHER | GET cursos asignados (`TeacherCourse` por `periodo YYYY-1/2`) + estudiantes con promedio/créditos/racha/riesgo. PATCH revisar misión (aprobar/devolver con `reviewComment`, otorga puntos). |
+| `/api/teacher` | GET, PATCH | TEACHER | GET cuatro cursos demo asignados (`TeacherCourse` por `periodo YYYY-1/2`) + estudiantes con promedio/créditos/racha/riesgo e insignias con contador de progreso. PATCH revisar misión (aprobar/devolver con `reviewComment`, otorga puntos). |
 | `/api/teacher/rewards` | GET, PATCH | TEACHER | GET solicitudes de canje de sus cursos + historial. PATCH aprobar/rechazar (`APROBADO/RECHAZADO`, `reviewNote`). |
 | `/api/teacher/notify` | POST | TEACHER | `{ studentId, message/cursos }` envía notificación de ruta recomendada y guarda `Activity{RUTA_RECOMENDADA_DOCENTE}`. |
 
@@ -85,19 +85,20 @@ Detalle de flujos y cómo añadir endpoints: ver `src/app/api/README.md`.
 
 ### Estudiantes (`/dashboard`, `/malla`, `/misiones`, `/logros`, `/recompensas`, `/estadisticas`, `/notificaciones`, `/perfil`)
 
-- **Dashboard**: puntos, nivel, racha, misiones activas, logros recientes, notificaciones y alertas.
+- **Dashboard**: puntos, nivel, racha, misiones activas, insignias recientes, notificaciones y alertas.
 - **Malla interactiva**: por semestre con estado por prerrequisitos, créditos aprobados vs totales y selección de materias del periodo.
 - **Misiones**: tipos `ACADEMICO, PLANIFICACION, MEJORA_CONTINUA, HABITO_ESTUDIO, IMPACTO_SOCIAL`. Manuales con evidencia + revisión docente, o automáticas (`verificationKey/Value`: créditos, promedio, racha) vía `missionVerification.ts`. Estados: `PENDIENTE → EN_PROGRESO → EN_REVISION → COMPLETADA/VERIFICADA/RECHAZADA`.
-- **Logros**: insignias por progreso/rendimiento/hábito. Filtro por categoría y estado (obtenidas/bloqueadas) con barra de progreso. Un chip indica si el catálogo vino de la API de la universidad, del catálogo local, o si se degradó a local porque la API no respondió.
+- **Insignias**: panel visual con tarjetas de Core Skills, Power Skills, Líderes UTB y Conexiones Profesionales, incluyendo sus variantes Plus. El catálogo puede venir de la API externa o del catálogo local y muestra su origen.
 - **Recompensas**: canje de puntos por bonificaciones (`EXAMEN, ASISTENCIA, ENTREGA, OTRO`) atadas a un `courseId` del periodo actual. Flujo `SOLICITADO → APROBADO/RECHAZADO → USADO/EXPIRADO`. Página `/recompensas`.
 - **Recomendaciones**: cuello de botella, reprobadas, electivas, ruta del próximo semestre, promedio < 3.5, rellenar créditos.
 - **Estadísticas**: créditos, promedio, nivel, tendencia y distribución por semestre.
 - **Perfil**: datos académicos, nivel e insignias recientes.
 - **Responsive + modo claro/oscuro** (`next-themes`, `AppShell` + `Sidebar`/`Header`).
 
-### Docentes (`/docentes`, `/perfil-docente`)
+### Docentes (`/docentes`, `/docentes/insignias`, `/perfil-docente`)
 
-- **Acompañamiento**: cursos asignados del periodo + estudiantes inscritos (promedio, créditos, racha, insignias, riesgo).
+- **Acompañamiento**: cuatro cursos asignados del periodo como bloques interactivos + estudiantes inscritos (promedio, créditos, racha, insignias, riesgo).
+- **Insignias del curso**: `/docentes/insignias` resume las cuatro categorías y sus variantes Plus. Al expandir un estudiante se muestra cada insignia con el color de su categoría y un contador sencillo `1/1`.
 - **Verificación de misiones**: aprobar/devolver con comentario (otorga `Point{MISION_COMPLETADA}`).
 - **Recompensas**: aprobar/rechazar canjes de sus cursos.
 - **Enviar ruta recomendada**: notificación al estudiante + registro en `Activity`.
@@ -162,7 +163,7 @@ utb-gamificacion/
     app/
       layout.tsx / globals.css / page.tsx (-> /dashboard) / favicon.ico
       login/ dashboard/ malla/ misiones/ logros/ recompensas/
-      estadisticas/ notificaciones/ perfil/ docentes/ perfil-docente/
+      estadisticas/ notificaciones/ perfil/ docentes/ docentes/insignias/ perfil-docente/
       api/                   # Backend (ver src/app/api/README.md)
     components/
       layout/AppShell.tsx    # Oculta Sidebar/Header en /login
@@ -190,17 +191,17 @@ Estructura detallada del frontend: `src/app/README.md`. Estructura del backend: 
 git clone <url-del-repositorio>
 cd utb-gamificacion
 cp .env.example .env     # en Windows: copy .env.example .env
-docker compose up -d
+docker compose up --build -d
 ```
 
-`docker compose up` ejecuta en el contenedor del `app`:
+`docker compose up --build` ejecuta en el contenedor del `app`:
 `prisma db push` (crea el schema) → `db:seed-if-empty` (siembra datos solo si la base está vacía) → `npm run dev`.
 
 | Servicio | Puerto | Descripción |
 |---|---|---|
 | `app` | 3000 | Next.js — http://localhost:3000 |
 | `db` | 5432 | PostgreSQL 16 (volumen `utb-gamificacion_pgdata`) |
-| `external-academic-api` | 3001 | API académica simulada |
+| `external-academic-api` | 3001 | API académica e insignias simuladas |
 
 Comandos útiles:
 
@@ -293,7 +294,7 @@ El email debe terminar en `@utb.edu.co` (validado en `src/lib/auth.ts`).
 | STUDENT | demo@utb.edu.co | demo123 | Juan Pérez — 6to semestre, 95 créditos |
 | STUDENT | demo2@utb.edu.co | demo1234 | Sara Peña — 8vo semestre, 113 créditos |
 | STUDENT | juanito@utb.edu.co | demo1234 | Angela Lemus — 3er semestre, 60 créditos |
-| TEACHER | docente@utb.edu.co | demo123 | María González — cursos H01A, M01A, C02A, C04A |
+| TEACHER | docente@utb.edu.co | demo123 | María González — cursos H01A, M01A, C02A y C04A |
 
 ---
 
@@ -396,10 +397,11 @@ no una caída del servicio.
 | Endpoint | Devuelve |
 |---|---|
 | `GET /academic/badges` | `{ catalogVersion, issuer, total, badges[] }` — catálogo completo |
-| `GET /academic/students/:studentCode/badges` | `{ studentCode, catalogVersion, issuer, total, earned, badges[] }` — catálogo con `earned`, `earnedAt` y `evidence` resueltos por estudiante |
+| `GET /academic/students/:studentCode/badges` | `{ studentCode, catalogVersion, issuer, total, earned, totalEarned, earnedBadges[], badges[] }` — catálogo con estado resuelto por estudiante |
 
-Los datos salen de `utb-external-api/src/fixtures/badges.json` (10 insignias,
-otorgadas para los tres estudiantes demo). Es una simulación: cuando exista el
+Los datos salen de `utb-external-api/src/fixtures/badges.json` (8 insignias del
+nuevo modelo: cuatro categorías base y cuatro variantes Plus, otorgadas para los
+tres estudiantes demo). Es una simulación: cuando exista el
 servicio institucional real solo cambia la URL en `UNIVERSITY_API_URL` y el
 consumidor no se toca. `BadgeCategory` de la API externa es el mismo enum del
 modelo local (`PROGRESO`, `RENDIMIENTO`, `HABITO`, `COMPETENCIA`, `IMPACTO_SOCIAL`),
