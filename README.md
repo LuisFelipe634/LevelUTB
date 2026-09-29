@@ -187,12 +187,39 @@ Estructura detallada del frontend: `src/app/README.md`. Estructura del backend: 
 
 Único prerrequisito: **Docker Desktop** (Windows, macOS o Linux). No necesitas Node, PostgreSQL ni npm en el host — la imagen `Dockerfile` usa `node:20-alpine`.
 
-```bash
+#### Windows, macOS o Linux con Docker Desktop
+
+```powershell
 git clone <url-del-repositorio>
 cd utb-gamificacion
-cp .env.example .env     # en Windows: copy .env.example .env
+Copy-Item .env.example .env       # PowerShell; en Bash usa: cp .env.example .env
 docker compose up --build -d
 ```
+
+Abre `http://localhost:3000`. El primer arranque crea el esquema, siembra la
+base solo si está vacía y levanta la API externa simulada en `http://localhost:3001`.
+
+Para ver el estado o los logs:
+
+```powershell
+docker compose ps
+docker compose logs -f app
+```
+
+Para detener los servicios sin borrar datos:
+
+```powershell
+docker compose down
+```
+
+Para reiniciar la base demo desde cero:
+
+```powershell
+docker compose down -v
+docker compose up --build -d
+```
+
+El último comando elimina el volumen de PostgreSQL y todos sus datos.
 
 `docker compose up --build` ejecuta en el contenedor del `app`:
 `prisma db push` (crea el schema) → `db:seed-if-empty` (siembra datos solo si la base está vacía) → `npm run dev`.
@@ -212,11 +239,35 @@ docker compose down      # parar (conserva el volumen de datos)
 docker compose down -v   # parar y BORRAR la base de datos
 ```
 
-**El seed no destruye datos.** `prisma/seed.ts` hace 22 `deleteMany()`, por eso el arranque usa `prisma/seed-if-empty.ts`, que siembra únicamente si la tabla `users` está vacía. Si ya trabajaste con datos reales, tu base se conserva. Para sembrar a mano (destructivo) o para desactivarlo en el arranque:
+#### Instalación local con `setup.sh` (Linux/macOS)
+
+`setup.sh` instala Node.js LTS mediante nvm, PostgreSQL, dependencias npm,
+genera `.env` si no existe, crea la base de datos, ejecuta `db:generate`,
+`db:push` y el seed demo. El seed es destructivo.
+
+```bash
+git clone <url-del-repositorio>
+cd utb-gamificacion
+chmod +x setup.sh
+./setup.sh
+npm run dev
+```
+
+Abre `http://localhost:3000`. Para instalar dependencias sin crear o modificar
+la base de datos:
+
+```bash
+./setup.sh --skip-db
+```
+
+> En Windows no se ejecuta `setup.sh` directamente; usa Docker Desktop y los
+> pasos anteriores de PowerShell.
+
+**El seed automático no destruye datos.** `prisma/seed.ts` hace `deleteMany()`, por eso el arranque usa `prisma/seed-if-empty.ts`, que siembra únicamente si la tabla `users` está vacía. Si ya trabajaste con datos reales, tu base se conserva. Para sembrar a mano (destructivo):
 
 ```bash
 npm run db:seed               # siembra desde cero (borra lo anterior)
-SEED_IF_EMPTY=false docker compose up -d
+docker compose exec -T app npm run db:seed
 ```
 
 ### Opción B: Local con Node + PostgreSQL

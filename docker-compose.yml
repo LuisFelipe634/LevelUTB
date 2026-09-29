@@ -42,6 +42,7 @@ services:
     environment:
       DATABASE_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-utb_gamificacion}?schema=public"
       UNIVERSITY_API_URL: "http://external-academic-api:3001"
+      UNIVERSITY_API_ENABLED: "true"
       NEXTAUTH_URL: "http://localhost:3000"
     command: sh -c "npm run db:push && npm run db:seed-if-empty && npm run dev"
 

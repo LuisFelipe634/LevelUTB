@@ -219,6 +219,17 @@ main() {
   info "UTB Gamificacion - Setup"
   info "=============================="
 
+  # Cargar primero la configuracion para que la creacion de PostgreSQL use
+  # exactamente la DATABASE_URL elegida por el usuario.
+  if [[ -f .env ]]; then
+    info ".env ya existe. Manteniendolo sin cambios."
+  else
+    info "Creando .env con valores locales por defecto..."
+    cp .env.example .env
+    warn "IMPORTANTE: edita '.env' si tus credenciales difieren del default."
+  fi
+  set -a; . ./.env; set +a
+
   ensure_node
   ensure_postgres
 
@@ -228,16 +239,6 @@ main() {
   else
     warn "Omitiendo configuracion de PostgreSQL (--skip-db)."
   fi
-
-  # Variables de entorno
-  if [[ -f .env ]]; then
-    info ".env ya existe. Manteniendolo sin cambios."
-  else
-    info "Creando .env con valores locales por defecto..."
-    cp .env.example .env
-    warn "IMPORTANTE: edita '.env' si tus credenciales difieren del default."
-  fi
-  set -a; . ./.env; set +a
 
   # Dependencias npm
   info "Instalando dependencias npm..."
