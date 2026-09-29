@@ -188,7 +188,7 @@ async function isStudentCodeAvailable(studentCode: string): Promise<boolean> {
   return taken === null;
 }
 
-async function createRegisteredUser(input: {
+function createRegisteredUser(input: {
   email: string;
   displayName: string;
   passwordHash: string;
