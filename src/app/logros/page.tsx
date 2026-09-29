@@ -41,7 +41,6 @@ function BadgeOverviewCard({ group, badges, plus = false }: { group: typeof over
 
   return (
     <article className="overflow-hidden rounded-2xl border border-[#e4e7eb] bg-white shadow-xs dark:border-gray-700 dark:bg-gray-800">
-      <div className="h-1.5" style={{ backgroundColor: group.color }} />
       <div className="p-5">
         <div className="flex items-start justify-between gap-3">
           <div><h2 className="text-lg font-bold text-[#0d1b34] dark:text-white">{group.name}{plus ? " Plus" : ""}</h2><p className="mt-1 text-sm text-[#8792a7]">{group.code}{plus ? "P" : ""}</p></div>

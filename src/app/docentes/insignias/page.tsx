@@ -50,7 +50,6 @@ function BadgeCard({ group, students, plus }: { group: BadgeGroup; students: Stu
 
   return (
     <article className="overflow-hidden rounded-2xl border border-[#e4e7eb] bg-white shadow-[0_1px_2px_rgba(15,23,42,0.03)] dark:border-gray-700 dark:bg-gray-800">
-      <div className="h-1.5" style={{ backgroundColor: group.color }} />
       <div className="p-5 sm:p-6">
         <div className="flex items-start justify-between gap-3">
           <div>

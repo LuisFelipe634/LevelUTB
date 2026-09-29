@@ -94,6 +94,8 @@ export async function GET() {
               earned: true,
               earnedAt,
               evidence,
+              progressCurrent: 1,
+              progressTarget: 1,
             }))
           }
         }
@@ -137,7 +139,7 @@ export async function GET() {
         totalProgramCredits: profile.program.totalCredits,
         totalPoints: student.points.reduce((total, point) => total + point.amount, 0),
         earnedBadgesCount: earnedBadges.length,
-        badges: earnedBadges.map((badge) => ({ name: badge.name, icon: badge.iconUrl, category: badge.category, earnedAt: badge.earnedAt, evidence: badge.evidence })),
+        badges: earnedBadges.map((badge) => ({ name: badge.name, icon: badge.iconUrl, category: badge.category, earnedAt: badge.earnedAt, evidence: badge.evidence, progressCurrent: 1, progressTarget: 1 })),
         rewardStatus: pendingRewards.length ? "PENDIENTE" : rewardStatuses.includes("APROBADO") ? "APROBADO" : rewardStatuses.length ? "REALIZADO" : "SIN_NOVEDADES",
         pendingRewardsCount: pendingRewards.length,
         pendingRewardCourseIds: pendingRewards.map((reward) => reward.courseId),

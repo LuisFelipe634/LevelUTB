@@ -23,7 +23,7 @@ type CourseStudent = {
   risk: string | null
   totalPoints: number
   earnedBadgesCount: number
-  badges: { name: string; icon: string; category: string; earnedAt: string | Date | null; evidence: string | null }[]
+  badges: { name: string; icon: string; category: string; earnedAt: string | Date | null; evidence: string | null; progressCurrent: number; progressTarget: number }[]
   rewardStatus: "PENDIENTE" | "APROBADO" | "REALIZADO" | "SIN_NOVEDADES"
   pendingRewardsCount: number
   rewardHistory: { id: string; name: string; status: string; pointsSpent: number; courseCode: string; requestedAt: string; reviewedAt: string | null }[]
@@ -114,6 +114,13 @@ function rewardStatusStyle(status: CourseStudent["rewardStatus"]) {
 
 function initialsOf(name: string) {
   return name.split(/\s+/).slice(0, 2).map((p) => p[0]).join("").toUpperCase()
+}
+
+function badgeColor(category: string) {
+  if (category === "PROGRESO") return "#f5ad00"
+  if (category === "HABITO") return "#bf16ef"
+  if (category === "IMPACTO_SOCIAL") return "#0794ee"
+  return "#35c99b"
 }
 
 function TeachersContent() {
@@ -415,11 +422,12 @@ function TeachersContent() {
                             <ul className="mt-2 grid gap-2 sm:grid-cols-2">
                               {student.badges.map((badge) => (
                                 <li key={`${student.id}-${badge.name}`} className="flex items-center gap-3 rounded-lg border border-emerald-100 bg-emerald-50/70 px-3 py-2 dark:border-emerald-900/50 dark:bg-emerald-900/20">
-                                  <span className="text-xl" aria-hidden="true">{badge.icon}</span>
+                                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full" style={{ backgroundColor: badgeColor(badge.category) }} aria-hidden="true" />
                                   <span className="min-w-0">
                                     <span className="block truncate text-sm font-semibold text-gray-900 dark:text-white">{badge.name}</span>
                                     <span className="block text-xs text-gray-500 dark:text-gray-400">{badge.category}</span>
                                   </span>
+                                  <span className="ml-auto shrink-0 rounded-full bg-white px-2 py-1 text-xs font-bold text-gray-700 shadow-sm dark:bg-gray-800 dark:text-gray-200">{badge.progressCurrent}/{badge.progressTarget}</span>
                                 </li>
                               ))}
                             </ul>
