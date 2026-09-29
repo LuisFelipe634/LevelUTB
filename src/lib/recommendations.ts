@@ -5,19 +5,21 @@ type RecommendationItem = {
   type: "CURSO_SUGERIDO" | "ALERTA_ATRASO" | "ELECTIVA_RECOMENDADA" | "MEJORA_PROMEDIO" | "RUTA_ACademica" | "RELLENAR_CREDITOS"
   title: string
   description: string
-  priority: number // 1=alta, 2=media, 3=baja
+  priority: number
 }
 
-/**
- * Generates smart recommendations for a student based on:
- * - Which prerequisites they've completed (unlocked courses)
- * - Failed courses they need to retake
- * - Bottleneck courses that unlock many others
- * - Low GPA warnings
- * - Remaining credit slots to maximize semester load
- */
-export async function generateRecommendations(studentProfileId: string): Promise<void> {
-  // Get student profile with all related data
+type CourseStatus = {
+  approved: Set<string>
+  failed: Set<string>
+  inProgress: Set<string>
+}
+
+type UnlockedCourse = {
+  course: Awaited<ReturnType<typeof prisma.course.findMany>>[0]
+  unlocksCount: number
+}
+
+async function fetchStudentData(studentProfileId: string) {
   const profile = await prisma.studentProfile.findUnique({
     where: { id: studentProfileId },
     include: {
@@ -37,11 +39,8 @@ export async function generateRecommendations(studentProfileId: string): Promise
     },
   })
 
-  if (!profile) return
-
-  // Collect all courses in the program
   const allCourses = await prisma.course.findMany({
-    where: { programId: profile.programId, isActive: true },
+    where: { programId: profile!.programId, isActive: true },
     include: {
       semester: true,
       prerequisites: { include: { prerequisite: true } },
@@ -49,60 +48,57 @@ export async function generateRecommendations(studentProfileId: string): Promise
     },
   })
 
-  // Determine approved, failed, and in-progress course codes
-  const approvedCourseIds = new Set<string>()
-  const failedCourseIds = new Set<string>()
-  const inProgressCourseIds = new Set<string>()
+  return { profile: profile!, allCourses }
+}
+
+function buildCourseStatus(profile: Awaited<ReturnType<typeof fetchStudentData>>["profile"], allCourses: Awaited<ReturnType<typeof fetchStudentData>>["allCourses"]): CourseStatus {
+  const approved = new Set<string>()
+  const failed = new Set<string>()
+  const inProgress = new Set<string>()
 
   for (const enrollment of profile.enrollments) {
     if (enrollment.status === "APROBADO") {
-      approvedCourseIds.add(enrollment.courseId)
+      approved.add(enrollment.courseId)
     } else if (enrollment.status === "REPROBADO") {
-      failedCourseIds.add(enrollment.courseId)
+      failed.add(enrollment.courseId)
     } else if (enrollment.status === "CURSANDO" || enrollment.status === "INSCRITO") {
-      inProgressCourseIds.add(enrollment.courseId)
+      inProgress.add(enrollment.courseId)
     }
   }
 
-  // Also check academic history for approved courses
   for (const record of profile.academicHistory) {
     if (record.status === "APROBADO") {
       const course = allCourses.find((c) => c.code === record.courseCode)
-      if (course) approvedCourseIds.add(course.id)
+      if (course) approved.add(course.id)
     } else if (record.status === "REPROBADO") {
       const course = allCourses.find((c) => c.code === record.courseCode)
-      if (course && !approvedCourseIds.has(course.id)) failedCourseIds.add(course.id)
+      if (course && !approved.has(course.id)) failed.add(course.id)
     }
   }
 
-  const recommendations: RecommendationItem[] = []
+  return { approved, failed, inProgress }
+}
 
-  // 1. Find UNLOCKED courses (prerequisites met, not yet taken)
-  const unlockedCourses = allCourses.filter((course) => {
-    // Skip if already approved, in progress, or currently enrolled
-    if (approvedCourseIds.has(course.id)) return false
-    if (inProgressCourseIds.has(course.id)) return false
+function findUnlockedCourses(allCourses: Awaited<ReturnType<typeof fetchStudentData>>["allCourses"], status: CourseStatus, currentSemester: number) {
+  return allCourses.filter((course) => {
+    if (status.approved.has(course.id)) return false
+    if (status.inProgress.has(course.id)) return false
 
-    // Check if all prerequisites are met
     if (course.prerequisites.length === 0) {
-      // No prerequisites — only suggest if from the next semester
-      return (course.semester?.number ?? 0) <= profile.currentSemester + 1
+      return (course.semester?.number ?? 0) <= currentSemester + 1
     }
 
-    return course.prerequisites.every((prereq) =>
-      approvedCourseIds.has(prereq.prerequisiteId)
-    )
+    return course.prerequisites.every((prereq) => status.approved.has(prereq.prerequisiteId))
   })
+}
 
-  // 2. Identify BOTTLENECK courses (unlock the most other courses)
-  const bottleneckCourses = unlockedCourses
-    .map((course) => ({
-      course,
-      unlocksCount: course.requiredBy.length,
-    }))
+function findBottleneckCourses(unlockedCourses: ReturnType<typeof findUnlockedCourses>): UnlockedCourse[] {
+  return unlockedCourses
+    .map((course) => ({ course, unlocksCount: course.requiredBy.length }))
     .sort((a, b) => b.unlocksCount - a.unlocksCount)
+}
 
-  // Add top bottleneck courses as high-priority recommendations
+function addBottleneckRecommendations(bottleneckCourses: UnlockedCourse[], recommendations: RecommendationItem[]) {
   for (const item of bottleneckCourses.slice(0, 2)) {
     if (item.unlocksCount > 0) {
       recommendations.push({
@@ -113,10 +109,10 @@ export async function generateRecommendations(studentProfileId: string): Promise
       })
     }
   }
+}
 
-  // 3. Failed courses that need retaking
+function addFailedCourseRecommendations(failedCourseIds: Set<string>, allCourses: Awaited<ReturnType<typeof fetchStudentData>>["allCourses"], approvedCourseIds: Set<string>, recommendations: RecommendationItem[]) {
   for (const courseId of failedCourseIds) {
-    // Don't recommend if already approved on a later attempt
     if (approvedCourseIds.has(courseId)) continue
 
     const course = allCourses.find((c) => c.id === courseId)
@@ -129,8 +125,9 @@ export async function generateRecommendations(studentProfileId: string): Promise
       priority: 1,
     })
   }
+}
 
-  // 4. Suggest unlocked elective courses
+function addElectiveRecommendations(unlockedCourses: ReturnType<typeof findUnlockedCourses>, recommendations: RecommendationItem[]) {
   const electivas = unlockedCourses.filter(
     (c) => c.type === "ELECTIVA" || c.type === "LIBRE_ELECCION"
   )
@@ -143,8 +140,9 @@ export async function generateRecommendations(studentProfileId: string): Promise
       priority: 3,
     })
   }
+}
 
-  // 5. Suggest next-semester unlocked mandatory courses
+function addNextSemesterRecommendations(unlockedCourses: ReturnType<typeof findUnlockedCourses>, bottleneckCourses: UnlockedCourse[], failedCourseIds: Set<string>, recommendations: RecommendationItem[]) {
   const nextSemesterCourses = unlockedCourses.filter(
     (c) =>
       c.type === "OBLIGATORIO" &&
@@ -161,8 +159,9 @@ export async function generateRecommendations(studentProfileId: string): Promise
       priority: 2,
     })
   }
+}
 
-  // 6. Low GPA warning
+function addLowGpaRecommendation(profile: Awaited<ReturnType<typeof fetchStudentData>>["profile"], recommendations: RecommendationItem[]) {
   if (profile.averageGrade > 0 && profile.averageGrade < 3.5) {
     recommendations.push({
       type: "MEJORA_PROMEDIO",
@@ -171,18 +170,25 @@ export async function generateRecommendations(studentProfileId: string): Promise
       priority: 1,
     })
   }
+}
 
-  // 6.5. Rellenar créditos disponibles del semestre actual (solo periodo vigente)
+function addCreditFillRecommendation(
+  profile: Awaited<ReturnType<typeof fetchStudentData>>["profile"],
+  unlockedCourses: ReturnType<typeof findUnlockedCourses>,
+  recommendations: RecommendationItem[]
+) {
   const now = new Date()
   const period = `${now.getFullYear()}-${now.getMonth() < 6 ? 1 : 2}`
   const currentSemester = getCurrentSemester(profile.enrollments, profile.currentSemester, period)
   const creditLimit = getCreditLimit(profile.averageGrade)
   let selectedCredits = 0
+
   for (const enrollment of profile.enrollments) {
     if ((enrollment.status === "CURSANDO" || enrollment.status === "INSCRITO") && enrollment.semesterCode === period && enrollment.course.semester?.number === currentSemester) {
       selectedCredits += enrollment.course.credits
     }
   }
+
   const remainingCredits = creditLimit - selectedCredits
 
   if (remainingCredits > 0 && profile.averageGrade >= 3.5) {
@@ -191,6 +197,7 @@ export async function generateRecommendations(studentProfileId: string): Promise
       (c) => c.semester?.number === nextSemesterNumber && c.credits <= remainingCredits
     )
     const bestFitCourse = nextSemesterCourses.sort((a, b) => b.credits - a.credits)[0]
+
     if (bestFitCourse) {
       recommendations.push({
         type: "RELLENAR_CREDITOS",
@@ -200,8 +207,9 @@ export async function generateRecommendations(studentProfileId: string): Promise
       })
     }
   }
+}
 
-  // If no specific recommendations, add a general one
+function addFallbackRecommendation(unlockedCourses: ReturnType<typeof findUnlockedCourses>, recommendations: RecommendationItem[]) {
   if (recommendations.length === 0 && unlockedCourses.length > 0) {
     const names = unlockedCourses.slice(0, 4).map((c) => c.name).join(", ")
     recommendations.push({
@@ -211,13 +219,11 @@ export async function generateRecommendations(studentProfileId: string): Promise
       priority: 2,
     })
   }
+}
 
-  // Clear old unread recommendations and save new ones
+async function saveRecommendations(studentProfileId: string, recommendations: RecommendationItem[]) {
   await prisma.recommendation.deleteMany({
-    where: {
-      studentId: studentProfileId,
-      isRead: false,
-    },
+    where: { studentId: studentProfileId, isRead: false },
   })
 
   for (const rec of recommendations) {
@@ -232,4 +238,33 @@ export async function generateRecommendations(studentProfileId: string): Promise
       },
     })
   }
+}
+
+/**
+ * Generates smart recommendations for a student based on:
+ * - Which prerequisites they've completed (unlocked courses)
+ * - Failed courses they need to retake
+ * - Bottleneck courses that unlock many others
+ * - Low GPA warnings
+ * - Remaining credit slots to maximize semester load
+ */
+export async function generateRecommendations(studentProfileId: string): Promise<void> {
+  const { profile, allCourses } = await fetchStudentData(studentProfileId)
+  if (!profile) return
+
+  const status = buildCourseStatus(profile, allCourses)
+  const unlockedCourses = findUnlockedCourses(allCourses, status, profile.currentSemester)
+  const bottleneckCourses = findBottleneckCourses(unlockedCourses)
+
+  const recommendations: RecommendationItem[] = []
+
+  addBottleneckRecommendations(bottleneckCourses, recommendations)
+  addFailedCourseRecommendations(status.failed, allCourses, status.approved, recommendations)
+  addElectiveRecommendations(unlockedCourses, recommendations)
+  addNextSemesterRecommendations(unlockedCourses, bottleneckCourses, status.failed, recommendations)
+  addLowGpaRecommendation(profile, recommendations)
+  addCreditFillRecommendation(profile, unlockedCourses, recommendations)
+  addFallbackRecommendation(unlockedCourses, recommendations)
+
+  await saveRecommendations(studentProfileId, recommendations)
 }
