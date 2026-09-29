@@ -31,7 +31,7 @@ export function recordUserActivity(
   })
 }
 
-export async function recordDailyAcademicActivity(userId: string, source = "student_profile") {
+export function recordDailyAcademicActivity(userId: string, source = "student_profile") {
   return recordUserActivity(userId, ACTIVITY_ACTIONS.DAILY_ACADEMIC, { source })
 }
 
