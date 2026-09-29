@@ -77,7 +77,7 @@ export default function Estadisticas() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetchStatsData(setStats, setLoading)
+    void fetchStatsData(setStats, setLoading)
   }, [])
 
   if (loading) {
@@ -94,7 +94,7 @@ export default function Estadisticas() {
       <div className="text-center py-12">
         <p className="text-gray-500 dark:text-gray-400">Error al cargar las estadísticas</p>
         <button
-          onClick={() => fetchStatsData(setStats, setLoading)}
+          onClick={() => void fetchStatsData(setStats, setLoading)}
           className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
         >
           Reintentar
