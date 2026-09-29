@@ -54,7 +54,7 @@ export default function Notificaciones() {
   const [actionLoading, setActionLoading] = useState<string | null>(null)
 
   useEffect(() => {
-    fetchNotificationsData(setNotifications, setLoading)
+    void fetchNotificationsData(setNotifications, setLoading)
   }, [])
 
   const unreadCount = notifications.filter((n) => !n.isRead).length
