@@ -13,6 +13,7 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m'
+SEP="=============================="
 
 info()  { echo -e "${GREEN}[setup]${NC} $*"; }
 warn()  { echo -e "${YELLOW}[setup]${NC} $*"; }
@@ -23,7 +24,7 @@ SKIP_DB=false
 for arg in "$@"; do
   case "$arg" in
     --skip-db) SKIP_DB=true ;;
-    *) ;;
+    *) warn "Flag desconocida: $arg" ;;
   esac
 done
 
@@ -77,7 +78,7 @@ ensure_pkg() {
     macos)
       if ! command -v brew >/dev/null 2>&1; then
         warn "Homebrew no detectado. Instalandolo..."
-        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+        /bin/bash -c "$(curl -fsSL --proto '=https' --proto-redir '=https' https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
         if [[ -d /opt/homebrew/bin ]]; then
           export PATH="/opt/homebrew/bin:$PATH"
         elif [[ -d /usr/local/bin ]]; then
@@ -86,6 +87,7 @@ ensure_pkg() {
       fi
       brew install "$pkg"
       ;;
+    *) error "SO no soportado en ensure_pkg: $OS"; exit 1 ;;
   esac
 }
 
@@ -104,7 +106,7 @@ ensure_node() {
   # Via nvm (evita permisos de root y versiones inconsistentes)
   if [[ ! -d "$HOME/.nvm" ]]; then
     info "Instalando nvm..."
-    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
+    curl -fsSL --proto '=https' --proto-redir '=https' https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
   fi
 
   export NVM_DIR="$HOME/.nvm"
@@ -133,6 +135,7 @@ ensure_postgres() {
     fedora) ensure_pkg postgresql-server ;;
     arch)   ensure_pkg postgresql ;;
     macos)  ensure_pkg postgresql@16 ;;
+    *) error "SO no soportado en ensure_postgres: $OS"; exit 1 ;;
   esac
 }
 
@@ -158,6 +161,7 @@ start_postgres() {
       brew services start postgresql@16
       export PATH="$(brew --prefix postgresql@16)/bin:$PATH"
       ;;
+    *) error "SO no soportado en start_postgres: $OS"; exit 1 ;;
   esac
   sleep 2
 }
@@ -215,9 +219,9 @@ create_db_if_missing() {
 # METODO PRINCIPAL
 # =======================================================
 main() {
-  info "=============================="
+  info "$SEP"
   info "UTB Gamificacion - Setup"
-  info "=============================="
+  info "$SEP"
 
   # Cargar primero la configuracion para que la creacion de PostgreSQL use
   # exactamente la DATABASE_URL elegida por el usuario.
@@ -242,7 +246,7 @@ main() {
 
   # Dependencias npm
   info "Instalando dependencias npm..."
-  npm install
+  npm install --ignore-scripts
 
   # Prisma
   info "Generando cliente Prisma..."
@@ -269,12 +273,12 @@ main() {
   fi
 
   echo ""
-  info "=============================="
+  info "$SEP"
   info "Setup completado."
   info "Inicia el servidor con:  npm run dev"
   info "Abre:                      http://localhost:3000"
   info "Credenciales demo:        demo@utb.edu.co / demo123"
-  info "=============================="
+  info "$SEP"
 }
 
 main "$@"
