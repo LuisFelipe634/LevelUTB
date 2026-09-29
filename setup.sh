@@ -14,6 +14,7 @@ YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m'
 SEP="=============================="
+HTTPS_ONLY='=https'
 
 info()  { echo -e "${GREEN}[setup]${NC} $*"; }
 warn()  { echo -e "${YELLOW}[setup]${NC} $*"; }
@@ -78,7 +79,7 @@ ensure_pkg() {
     macos)
       if ! command -v brew >/dev/null 2>&1; then
         warn "Homebrew no detectado. Instalandolo..."
-        /bin/bash -c "$(curl -fsSL --proto '=https' --proto-redir '=https' https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+        /bin/bash -c "$(curl -fsSL --proto ${HTTPS_ONLY} --proto-redir ${HTTPS_ONLY} https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
         if [[ -d /opt/homebrew/bin ]]; then
           export PATH="/opt/homebrew/bin:$PATH"
         elif [[ -d /usr/local/bin ]]; then
@@ -106,7 +107,7 @@ ensure_node() {
   # Via nvm (evita permisos de root y versiones inconsistentes)
   if [[ ! -d "$HOME/.nvm" ]]; then
     info "Instalando nvm..."
-    curl -fsSL --proto '=https' --proto-redir '=https' https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
+    curl -fsSL --proto ${HTTPS_ONLY} --proto-redir ${HTTPS_ONLY} https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
   fi
 
   export NVM_DIR="$HOME/.nvm"
