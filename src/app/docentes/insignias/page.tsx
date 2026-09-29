@@ -30,7 +30,7 @@ function BadgeRing({ percentage, plus }: { percentage: number; plus?: boolean })
         className="absolute inset-0 rounded-full"
         style={{ background: `conic-gradient(#f39a08 ${safePercentage * 3.6}deg, #f39a08 ${safePercentage * 3.6}deg, transparent ${safePercentage * 3.6}deg)` }}
       />
-      <div className="relative h-15 w-15 rounded-full bg-white" />
+      <div className="relative h-15 w-15 rounded-full bg-white dark:bg-gray-800" />
     </div>
   )
 }
@@ -49,13 +49,13 @@ function BadgeCard({ group, students, plus }: { group: BadgeGroup; students: Stu
   const percentage = totalStudents ? (earnedBadges / totalStudents) * 100 : 0
 
   return (
-    <article className="overflow-hidden rounded-2xl border border-[#e4e7eb] bg-white shadow-[0_1px_2px_rgba(15,23,42,0.03)]">
+    <article className="overflow-hidden rounded-2xl border border-[#e4e7eb] bg-white shadow-[0_1px_2px_rgba(15,23,42,0.03)] dark:border-gray-700 dark:bg-gray-800">
       <div className="h-1.5" style={{ backgroundColor: group.color }} />
       <div className="p-5 sm:p-6">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h2 className="text-lg font-bold text-[#0d1b34]">{group.name}{plus ? " Plus" : ""}</h2>
-            <p className="mt-1 text-sm text-[#8792a7]">{group.code}{plus ? "P" : ""}</p>
+            <h2 className="text-lg font-bold text-[#0d1b34] dark:text-white">{group.name}{plus ? " Plus" : ""}</h2>
+            <p className="mt-1 text-sm text-[#8792a7] dark:text-gray-400">{group.code}{plus ? "P" : ""}</p>
           </div>
           <span className="mt-1 h-4 w-4 rounded-full" style={{ backgroundColor: group.color }} />
         </div>
@@ -63,14 +63,14 @@ function BadgeCard({ group, students, plus }: { group: BadgeGroup; students: Stu
         <div className="mt-5 flex items-center gap-5">
           <BadgeRing percentage={percentage} plus={plus} />
           <div className="space-y-2 text-sm">
-            <div className="flex items-center gap-2 text-[#64718a]"><span className="h-2.5 w-2.5 rounded-full bg-[#f5ad00]" />En progreso <strong className="ml-1 text-lg leading-none text-[#0d1b34]">{inProgress}</strong></div>
-            <div className="flex items-center gap-2 text-[#64718a]"><span className="h-2.5 w-2.5 rounded-full bg-[#06c98b]" />Ganada <strong className="ml-1 text-lg leading-none text-[#0d1b34]">{earnedBadges}</strong></div>
+            <div className="flex items-center gap-2 text-[#64718a] dark:text-gray-400"><span className="h-2.5 w-2.5 rounded-full bg-[#f5ad00]" />En progreso <strong className="ml-1 text-lg leading-none text-[#0d1b34] dark:text-white">{inProgress}</strong></div>
+            <div className="flex items-center gap-2 text-[#64718a] dark:text-gray-400"><span className="h-2.5 w-2.5 rounded-full bg-[#06c98b]" />Ganada <strong className="ml-1 text-lg leading-none text-[#0d1b34] dark:text-white">{earnedBadges}</strong></div>
           </div>
         </div>
 
-        <div className="mt-5 flex items-center justify-between border-t border-[#edf0f4] pt-4 text-sm">
-          <span className="text-[#8792a7]">Total estudiantes</span>
-          <strong className="font-medium text-[#243653]">{totalStudents}</strong>
+        <div className="mt-5 flex items-center justify-between border-t border-[#edf0f4] pt-4 text-sm dark:border-gray-700">
+          <span className="text-[#8792a7] dark:text-gray-400">Total estudiantes</span>
+          <strong className="font-medium text-[#243653] dark:text-gray-200">{totalStudents}</strong>
         </div>
       </div>
     </article>
@@ -95,20 +95,20 @@ export default function TeacherBadgesPage() {
 
   const uniqueStudents = useMemo(() => Array.from(new Map(students.map((student) => [student.id, student])).values()), [students])
 
-  if (loading) return <div className="flex h-64 items-center justify-center text-gray-500"><Loader2 className="mr-2 h-5 w-5 animate-spin" />Cargando insignias...</div>
-  if (error) return <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-red-700"><AlertTriangle className="mb-2 h-5 w-5" />{error}</div>
+  if (loading) return <div className="flex h-64 items-center justify-center text-gray-500 dark:text-gray-400"><Loader2 className="mr-2 h-5 w-5 animate-spin" />Cargando insignias...</div>
+  if (error) return <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300"><AlertTriangle className="mb-2 h-5 w-5" />{error}</div>
 
   return (
     <div className="mx-auto max-w-375 space-y-10 px-1">
       <section>
-        <h1 className="mb-5 text-xl font-semibold text-[#17335c]">Insignias</h1>
+        <h1 className="mb-5 text-xl font-semibold text-[#17335c] dark:text-white">Insignias</h1>
         <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
           {GROUPS.map((group) => <BadgeCard key={group.code} group={group} students={uniqueStudents} />)}
         </div>
       </section>
 
       <section>
-        <h2 className="mb-5 text-xl font-semibold text-[#17335c]">Insignias Plus</h2>
+        <h2 className="mb-5 text-xl font-semibold text-[#17335c] dark:text-white">Insignias Plus</h2>
         <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
           {GROUPS.map((group) => <BadgeCard key={`${group.code}-plus`} group={group} students={uniqueStudents} plus />)}
         </div>

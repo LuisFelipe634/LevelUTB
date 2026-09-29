@@ -27,14 +27,6 @@ const navigation = [
   { name: "Estadísticas", href: "/estadisticas", icon: BarChart3 },
 ]
 
-type TeacherCourseSummary = {
-  id: string
-  code: string
-  name: string
-  semester: number
-  period: string
-}
-
 function SidebarContent({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const pathname = usePathname()
   const { data: session } = useSession()
@@ -43,7 +35,7 @@ function SidebarContent({ isOpen, onClose }: { isOpen: boolean; onClose: () => v
   const searchParams = useSearchParams()
   const teacherSection = searchParams.get("section")
   const selectedCourseQuery = searchParams.get("course")
-  const [teacherCourses, setTeacherCourses] = useState<TeacherCourseSummary[]>([])
+  const [teacherCourses, setTeacherCourses] = useState<{ id: string; code: string; name: string; semester: number; period: string }[]>([])
   const [pendingMissions, setPendingMissions] = useState(0)
   const [pendingRewards, setPendingRewards] = useState(0)
   const [reviewedItems, setReviewedItems] = useState(0)
@@ -67,13 +59,7 @@ function SidebarContent({ isOpen, onClose }: { isOpen: boolean; onClose: () => v
       .then(async ([teacherResponse, rewardsResponse]) => {
         if (!teacherResponse.ok) return
         const teacherData = await teacherResponse.json()
-        setTeacherCourses((teacherData.courses || []).map((course: TeacherCourseSummary) => ({
-          id: course.id,
-          code: course.code,
-          name: course.name,
-          semester: course.semester,
-          period: course.period,
-        })))
+        setTeacherCourses(teacherData.courses || [])
         setPendingMissions((teacherData.pendingMissions || []).length)
 
         if (rewardsResponse.ok) {
@@ -177,37 +163,6 @@ function SidebarContent({ isOpen, onClose }: { isOpen: boolean; onClose: () => v
                   {teacherLink(buildTeacherHref("historial"), "Historial", CheckCircle, pathname === "/docentes" && activeSection === "historial", reviewedItems)}
                   {teacherLink("/docentes/insignias", "Insignias", Medal, pathname === "/docentes/insignias")}
                 </div>
-              </div>
-              <div>
-                <p className="mb-3 px-2 text-xs font-bold uppercase tracking-wider text-[#7893b6] dark:text-blue-300">Mis cursos</p>
-                {teacherCourses.length > 0 ? (
-                  <div className="space-y-1">
-                    {teacherCourses.map((course) => {
-                      const isActive = selectedCourseQuery ? course.id === selectedCourseQuery : course.id === teacherCourses[0]?.id
-                      return (
-                        <Link
-                          key={course.id}
-                          href={buildTeacherHref(activeSection === "cursos" ? null : activeSection, course.id)}
-                          onClick={onClose}
-                          title={`${course.code} · ${course.name}`}
-                          className={`relative block rounded-xl px-4 py-2.5 transition-colors ${
-                            isActive
-                              ? "bg-[#edf2f9] dark:bg-blue-900/30"
-                              : "hover:bg-[#f0f4fa] dark:hover:bg-gray-800"
-                          }`}
-                        >
-                          {isActive && <span className="absolute -left-3 top-1/2 h-8 w-1 -translate-y-1/2 rounded-r-full bg-[#1646d8]" />}
-                          <span className={`block truncate text-sm font-semibold ${isActive ? "text-blue-600 dark:text-blue-300" : "text-[#17335c] dark:text-gray-200"}`}>
-                            {course.code}
-                          </span>
-                          <span className="block truncate text-xs text-gray-500 dark:text-gray-400">{course.name}</span>
-                        </Link>
-                      )
-                    })}
-                  </div>
-                ) : (
-                  <p className="px-2 text-xs text-gray-400">Sin cursos asignados.</p>
-                )}
               </div>
             </div>
           )
