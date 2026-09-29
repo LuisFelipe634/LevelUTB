@@ -289,7 +289,7 @@ function buildCompletionEvidence(
     : "Cumplimiento registrado automáticamente"
 }
 
-async function persistCompletion(
+function persistCompletion(
   userId: string,
   mission: Mission,
   existingMission: StudentMission,
