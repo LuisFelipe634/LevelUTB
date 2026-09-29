@@ -160,7 +160,7 @@ export default function Notificaciones() {
           { key: "unread", label: "No leídas" },
           { key: "ALERTA_RIESGO", label: "Alertas" },
           { key: "MISION_DISPONIBLE", label: "Misiones" },
-          { key: "LOGRO_OBTENIDO", label: "Logros" }
+          { key: "LOGRO_OBTENIDO", label: "Insignias" }
         ].map((f) => (
           <button
             key={f.key}

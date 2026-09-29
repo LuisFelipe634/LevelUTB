@@ -608,7 +608,7 @@ export default function Recompensas() {
           <div>
             <h3 className="font-semibold text-blue-900 dark:text-blue-100">¿Cómo funcionan las recompensas?</h3>
             <ul className="mt-2 text-sm text-blue-800 dark:text-blue-200 space-y-1">
-              <li>• Gana puntos completando misiones y logros académicos</li>
+              <li>• Gana puntos completando misiones e insignias</li>
               <li>• Canjea puntos por bonificaciones reales en tus cursos</li>
               <li>• Las solicitudes son revisadas por docentes (pueden tardar 24-48h)</li>
               <li>• Una vez aprobadas, tienes 30 días para usar la bonificación</li>

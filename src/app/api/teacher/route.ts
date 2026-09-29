@@ -3,6 +3,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { getAverageGrade, getCurrentSemester } from "@/lib/academic"
 import { requireRole, jsonUnauthorized, jsonForbidden } from "@/lib/session"
+import { getBadgeSource } from "@/lib/getBadgeSource"
 
 export async function GET() {
   const session = await requireRole("TEACHER")
@@ -69,6 +70,37 @@ export async function GET() {
       orderBy: { createdAt: "desc" }
     })
 
+    const badgeSource = getBadgeSource()
+    const badgeCatalogs = await Promise.all(
+      students.map(async (student) => {
+        const studentCode = student.studentProfile?.studentCode
+        if (!studentCode) return { studentId: student.id, badges: [] as Awaited<ReturnType<typeof badgeSource.getStudentBadges>>["badges"] }
+
+        try {
+          const catalog = await badgeSource.getStudentBadges(studentCode)
+          return { studentId: student.id, badges: catalog.badges.filter((badge) => badge.earned) }
+        } catch (error) {
+          console.error(`[api/teacher] no se pudieron cargar insignias de ${studentCode}:`, error)
+          return {
+            studentId: student.id,
+            badges: student.badges.map(({ badge, earnedAt, evidence }) => ({
+              code: badge.id,
+              name: badge.name,
+              description: badge.description,
+              iconUrl: badge.iconUrl,
+              category: badge.category,
+              requiredLevel: badge.requiredLevel,
+              pointsRequired: badge.pointsRequired,
+              earned: true,
+              earnedAt,
+              evidence,
+            }))
+          }
+        }
+      })
+    )
+    const badgesByStudentId = new Map(badgeCatalogs.map((catalog) => [catalog.studentId, catalog.badges]))
+
     const data = students.flatMap((student) => {
       const profile = student.studentProfile
       if (!profile) return []
@@ -91,6 +123,7 @@ export async function GET() {
       const assignedStudentRewards = student.rewards.filter((reward) => assignedCourseIds.includes(reward.courseId) && (assignedPeriods.length === 0 || profile.enrollments.some((enrollment) => enrollment.courseId === reward.courseId && assignedPeriods.includes(enrollment.semesterCode))))
       const pendingRewards = assignedStudentRewards.filter((reward) => reward.status === "SOLICITADO")
       const rewardStatuses = [...new Set(assignedStudentRewards.map((reward) => reward.status))]
+      const earnedBadges = badgesByStudentId.get(student.id) || []
 
       return [{
         id: student.id,
@@ -103,13 +136,14 @@ export async function GET() {
         totalCredits: approvedCredits,
         totalProgramCredits: profile.program.totalCredits,
         totalPoints: student.points.reduce((total, point) => total + point.amount, 0),
+        earnedBadgesCount: earnedBadges.length,
+        badges: earnedBadges.map((badge) => ({ name: badge.name, icon: badge.iconUrl, category: badge.category, earnedAt: badge.earnedAt, evidence: badge.evidence })),
         rewardStatus: pendingRewards.length ? "PENDIENTE" : rewardStatuses.includes("APROBADO") ? "APROBADO" : rewardStatuses.length ? "REALIZADO" : "SIN_NOVEDADES",
         pendingRewardsCount: pendingRewards.length,
         pendingRewardCourseIds: pendingRewards.map((reward) => reward.courseId),
         rewardHistory: assignedStudentRewards.map((reward) => ({ id: reward.id, name: reward.reward.name, status: reward.status, pointsSpent: reward.pointsSpent, courseCode: reward.course.code, requestedAt: reward.requestedAt, reviewedAt: reward.reviewedAt })),
         completedCourses: profile.enrollments.filter((enrollment) => enrollment.status === "APROBADO").length,
         currentCourses: profile.enrollments.filter((enrollment) => enrollment.status === "CURSANDO").map((enrollment) => ({ code: enrollment.course.code, name: enrollment.course.name, credits: enrollment.course.credits, period: enrollment.semesterCode })),
-        badges: student.badges.map(({ badge, earnedAt, evidence }) => ({ name: badge.name, icon: badge.iconUrl, category: badge.category, earnedAt, evidence })),
         recommendations: profile.recommendations.map(({ title, description, priority }) => ({ title, description, priority })),
         suggestedCourses: suggestedCourses.map((course) => ({ code: course.code, name: course.name, credits: course.credits, semester: course.semester.number })),
         streak: calculateStreak(streakActivities.filter((activity) => activity.userId === student.id)),
@@ -133,6 +167,8 @@ export async function GET() {
         totalCredits: student.totalCredits,
         risk: student.risk,
         totalPoints: student.totalPoints,
+        earnedBadgesCount: student.earnedBadgesCount,
+        badges: student.badges,
         rewardStatus: student.rewardStatus,
         rewardHistory: student.rewardHistory,
         pendingRewardsCount: student.pendingRewardCourseIds.filter((courseId) => courseId === assignment.courseId).length

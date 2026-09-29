@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
 import { getAverageGrade, getCurrentSemester } from "@/lib/academic"
+import { getBadgeSource } from "@/lib/getBadgeSource"
 
 export async function GET() {
   function currentPeriod() {
@@ -76,9 +77,18 @@ export async function GET() {
     }
 
     // Obtener insignias
-    const badges = await prisma.studentBadge.findMany({
+    const localBadges = await prisma.studentBadge.findMany({
       where: { studentId: userId }
     })
+    let earnedBadgeCount = localBadges.length
+    if (profile.studentCode) {
+      try {
+        const badgeCatalog = await getBadgeSource().getStudentBadges(profile.studentCode)
+        earnedBadgeCount = badgeCatalog.badges.filter((badge) => badge.earned).length
+      } catch (error) {
+        console.error("[api/stats] no se pudieron cargar insignias externas:", error)
+      }
+    }
 
     // Obtener misiones
     const missions = await prisma.studentMission.findMany({
@@ -153,7 +163,7 @@ export async function GET() {
       semesterProgress,
       achievements: {
         totalBadges: await prisma.badge.count({ where: { isActive: true } }),
-        earnedBadges: badges.length,
+        earnedBadges: earnedBadgeCount,
         totalMissions: await prisma.mission.count({ where: { isActive: true } }),
         completedMissions: completedMissions.length,
         totalPoints,

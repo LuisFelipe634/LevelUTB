@@ -121,7 +121,7 @@ export default function Estadisticas() {
       <div>
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Estadísticas</h1>
         <p className="text-gray-600 dark:text-gray-400">
-          Tu progreso académico y logros de gamificación
+          Tus métricas académicas y de gamificación
         </p>
       </div>
 
@@ -350,10 +350,10 @@ export default function Estadisticas() {
         </div>
       </div>
 
-      {/* Achievements Summary */}
+      {/* Gamification Summary */}
       <div className="order-5 bg-white dark:bg-gray-800 rounded-xl shadow-xs p-6 border border-gray-200 dark:border-gray-700">
         <h2 className="font-semibold text-gray-900 dark:text-white mb-4">
-          Resumen de Logros
+          Resumen de gamificación
         </h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="text-center p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">

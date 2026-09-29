@@ -12,7 +12,8 @@ import {
   UserRound,
   Gift,
   Clock,
-  CheckCircle
+  CheckCircle,
+  Medal
 } from "lucide-react"
 import { useSession } from "next-auth/react"
 import { Suspense, useEffect, useState } from "react"
@@ -20,7 +21,7 @@ import { Suspense, useEffect, useState } from "react"
 const navigation = [
   { name: "Resumen", href: "/dashboard", icon: LayoutDashboard },
   { name: "Plan de estudios", href: "/malla", icon: BookOpen },
-  { name: "Logros académicos", href: "/logros", icon: Trophy },
+  { name: "Insignias", href: "/logros", icon: Trophy },
   { name: "Misiones & desafíos", href: "/misiones", icon: Target },
   { name: "Recompensas", href: "/recompensas", icon: Gift },
   { name: "Estadísticas", href: "/estadisticas", icon: BarChart3 },
@@ -174,6 +175,7 @@ function SidebarContent({ isOpen, onClose }: { isOpen: boolean; onClose: () => v
                   {teacherLink(buildTeacherHref("misiones"), "Misiones por revisar", Clock, pathname === "/docentes" && activeSection === "misiones", pendingMissions)}
                   {teacherLink(buildTeacherHref("recompensas"), "Recompensas por revisar", Gift, pathname === "/docentes" && activeSection === "recompensas", pendingRewards)}
                   {teacherLink(buildTeacherHref("historial"), "Historial", CheckCircle, pathname === "/docentes" && activeSection === "historial", reviewedItems)}
+                  {teacherLink("/docentes/insignias", "Insignias", Medal, pathname === "/docentes/insignias")}
                 </div>
               </div>
               <div>

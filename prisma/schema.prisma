@@ -338,6 +338,8 @@ model Badge {
   category      BadgeCategory
   requiredLevel Int?
   pointsRequired Int?
+  color         String?
+  order         Int?
   isActive      Boolean   @default(true)
   createdAt     DateTime  @default(now())
 

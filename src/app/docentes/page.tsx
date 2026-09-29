@@ -22,6 +22,8 @@ type CourseStudent = {
   totalCredits: number
   risk: string | null
   totalPoints: number
+  earnedBadgesCount: number
+  badges: { name: string; icon: string; category: string; earnedAt: string | Date | null; evidence: string | null }[]
   rewardStatus: "PENDIENTE" | "APROBADO" | "REALIZADO" | "SIN_NOVEDADES"
   pendingRewardsCount: number
   rewardHistory: { id: string; name: string; status: string; pointsSpent: number; courseCode: string; requestedAt: string; reviewedAt: string | null }[]
@@ -302,9 +304,9 @@ function TeachersContent() {
           </div>
         </div>
 
-        {/* Selector de curso (visible también en móvil, refleja el sidebar) */}
+        {/* Cursos asignados como bloques interactivos */}
         {courses.length > 0 && (
-          <div className="mt-5 flex gap-2 overflow-x-auto border-t border-slate-100 pt-4 dark:border-gray-700">
+          <div className="mt-5 grid gap-3 border-t border-slate-100 pt-4 dark:border-gray-700 sm:grid-cols-2 lg:grid-cols-3">
             {courses.map((course) => {
               const active = selectedCourse?.id === course.id
               return (
@@ -312,13 +314,18 @@ function TeachersContent() {
                   key={course.id}
                   type="button"
                   onClick={() => setCourse(course.id)}
-                  className={`shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
+                  className={`group flex min-h-28 items-center justify-between rounded-xl border p-4 text-left transition-colors ${
                     active
-                      ? "bg-blue-600 text-white shadow-sm"
-                      : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+                      ? "border-blue-500 bg-blue-50 text-blue-900 shadow-sm dark:bg-blue-900/30 dark:text-blue-100"
+                      : "border-slate-200 bg-slate-50 text-slate-700 hover:border-blue-300 hover:bg-blue-50/60 dark:border-gray-600 dark:bg-gray-700/60 dark:text-gray-200 dark:hover:bg-gray-700"
                   }`}
                 >
-                  {course.code} · {course.students.length}
+                  <span className="min-w-0">
+                    <span className="block text-xs font-bold uppercase tracking-wide text-blue-600 dark:text-blue-300">{course.code}</span>
+                    <span className="mt-1 block truncate font-semibold">{course.name}</span>
+                    <span className="mt-2 block text-xs text-slate-500 dark:text-gray-400">{course.students.length} estudiantes · Semestre {course.semester}</span>
+                  </span>
+                  <ChevronRight className={`h-5 w-5 shrink-0 transition-transform ${active ? "translate-x-1 text-blue-600" : "text-slate-400 group-hover:translate-x-1"}`} />
                 </button>
               )
             })}
@@ -388,11 +395,12 @@ function TeachersContent() {
                     </button>
                     {expanded && (
                       <div className="border-t border-slate-100 bg-slate-50/70 px-4 py-4 dark:border-gray-700 dark:bg-gray-700/30 sm:px-6">
-                        <div className="grid gap-3 sm:grid-cols-4">
+                        <div className="grid gap-3 sm:grid-cols-5">
                           {[
                             { label: "Promedio", value: student.averageGrade.toFixed(1) },
                             { label: "Créditos", value: String(student.totalCredits) },
                             { label: "Puntos", value: student.totalPoints.toLocaleString("es-CO") },
+                            { label: "Insignias obtenidas", value: String(student.earnedBadgesCount) },
                             { label: "Estado de canje", value: rewardStatusLabel(student.rewardStatus, student.pendingRewardsCount) },
                           ].map((stat) => (
                             <div key={stat.label} className="rounded-lg border border-slate-100 bg-white p-3 dark:border-gray-600 dark:bg-gray-800">
@@ -400,6 +408,24 @@ function TeachersContent() {
                               <p className="mt-0.5 font-bold text-gray-900 dark:text-white">{stat.value}</p>
                             </div>
                           ))}
+                        </div>
+                        <div className="mt-4">
+                          <p className="text-sm font-semibold text-gray-900 dark:text-white">Insignias obtenidas</p>
+                          {student.badges.length ? (
+                            <ul className="mt-2 grid gap-2 sm:grid-cols-2">
+                              {student.badges.map((badge) => (
+                                <li key={`${student.id}-${badge.name}`} className="flex items-center gap-3 rounded-lg border border-emerald-100 bg-emerald-50/70 px-3 py-2 dark:border-emerald-900/50 dark:bg-emerald-900/20">
+                                  <span className="text-xl" aria-hidden="true">{badge.icon}</span>
+                                  <span className="min-w-0">
+                                    <span className="block truncate text-sm font-semibold text-gray-900 dark:text-white">{badge.name}</span>
+                                    <span className="block text-xs text-gray-500 dark:text-gray-400">{badge.category}</span>
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p className="mt-2 text-sm text-gray-500">Este estudiante aún no tiene insignias obtenidas.</p>
+                          )}
                         </div>
                         <p className="mt-4 text-sm font-semibold text-gray-900 dark:text-white">Historial de canjes</p>
                         {(student.rewardHistory || []).length ? (

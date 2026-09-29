@@ -238,7 +238,7 @@ export default function Dashboard() {
 
 {/* Recommendations Section (collapsible, same pattern as semesters in malla) */}
       {recommendations.length > 0 && (
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-200 dark:border-blue-800 rounded-xl overflow-hidden">
+        <div className="bg-linear-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-200 dark:border-blue-800 rounded-xl overflow-hidden">
           <button
             onClick={toggleRecommendations}
             className="w-full flex items-center justify-between p-5 hover:bg-blue-100/60 dark:hover:bg-blue-900/30 transition-colors"
@@ -281,7 +281,7 @@ export default function Dashboard() {
                   </div>
                   <button
                     onClick={() => dismissRecommendation(rec.id)}
-                    className="flex-shrink-0 p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                    className="shrink-0 p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                     title="Descartar"
                   >
                     <X className="w-4 h-4" />
@@ -442,7 +442,7 @@ export default function Dashboard() {
           {/* Recent Badges */}
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xs p-6 border border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="font-semibold text-gray-900 dark:text-white">Logros Recientes</h2>
+              <h2 className="font-semibold text-gray-900 dark:text-white">Insignias recientes</h2>
               <Link
                 href="/logros"
                 className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
@@ -548,7 +548,7 @@ export default function Dashboard() {
               role="alert"
               aria-live="assertive"
             >
-              <div className="bg-gradient-to-r from-red-600 to-orange-500 px-4 py-3 flex items-center justify-between">
+              <div className="bg-linear-to-r from-red-600 to-orange-500 px-4 py-3 flex items-center justify-between">
                 <div className="flex items-center gap-2 text-white">
                   <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20">
                     <Send className="h-4 w-4" />

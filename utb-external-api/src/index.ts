@@ -123,6 +123,8 @@ app.get("/academic/students/:studentCode/badges", async (request: FastifyRequest
     issuer: badgeFixtures.issuer,
     total: badges.length,
     earned: badges.filter((b) => b.earned).length,
+    totalEarned: badges.filter((b) => b.earned).length,
+    earnedBadges: badges.filter((b) => b.earned),
     badges,
   };
 });

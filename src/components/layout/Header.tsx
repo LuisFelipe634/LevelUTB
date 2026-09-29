@@ -22,7 +22,7 @@ const searchOptions: SearchResult[] = [
   { id: "dashboard", type: "page", label: "Dashboard", description: "Resumen de tu avance", href: "/dashboard", keywords: "inicio resumen avance", icon: LayoutDashboard, roles: ["STUDENT"] },
   { id: "curriculum", type: "page", label: "Malla Curricular", description: "Consulta y selecciona materias", href: "/malla", keywords: "malla curricular cursos materias semestre", icon: BookOpen, roles: ["STUDENT"] },
   { id: "missions", type: "page", label: "Misiones", description: "Retos y puntos", href: "/misiones", keywords: "misiones retos puntos", icon: Target, roles: ["STUDENT"] },
-  { id: "badges", type: "page", label: "Logros", description: "Insignias y progreso", href: "/logros", keywords: "logros insignias premios", icon: Trophy, roles: ["STUDENT"] },
+  { id: "badges", type: "page", label: "Insignias", description: "Insignias y progreso", href: "/logros", keywords: "insignias premios", icon: Trophy, roles: ["STUDENT"] },
   { id: "notifications", type: "page", label: "Notificaciones", description: "Revisa tus avisos", href: "/notificaciones", keywords: "notificaciones avisos alertas", icon: Bell, roles: ["STUDENT", "TEACHER"] },
   { id: "stats", type: "page", label: "Estadísticas", description: "Métricas de tu progreso", href: "/estadisticas", keywords: "estadisticas métricas progreso", icon: BarChart3, roles: ["STUDENT"] },
   { id: "profile", type: "page", label: "Mi perfil", description: "Información académica", href: "/perfil", keywords: "perfil estudiante datos", icon: UserRound, roles: ["STUDENT"] },
@@ -161,7 +161,7 @@ export function Header({ onToggleSidebar }: { onToggleSidebar: () => void }) {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
           <input
             type="text"
-            placeholder="Buscar cursos, misiones, logros..."
+            placeholder="Buscar cursos, misiones, insignias..."
             value={searchTerm}
             onChange={(event) => {
               setSearchTerm(event.target.value)

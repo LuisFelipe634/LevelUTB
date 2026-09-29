@@ -5,6 +5,7 @@ import { calculateStreak } from "@/lib/streak"
 import { recordDailyAcademicActivity } from "@/lib/activity"
 import { requireRole, jsonUnauthorized, jsonForbidden } from "@/lib/session"
 import { getAcademicSource, isExternalAcademicEnabled } from "@/lib/getAcademicSource"
+import { getBadgeSource } from "@/lib/getBadgeSource"
 import type { AcademicEnrollment } from "@/lib/academicSource"
 
 type Resolved<T> = { value: T } | { error: NextResponse }
@@ -153,6 +154,19 @@ export async function GET() {
 
     // Calcular puntos totales
     const totalPoints = user.points.reduce((acc, p) => acc + p.amount, 0)
+    let resolvedBadges = user.badges
+    if (user.studentProfile?.studentCode) {
+      try {
+        const badgeCatalog = await getBadgeSource().getStudentBadges(user.studentProfile.studentCode)
+        resolvedBadges = badgeCatalog.badges.filter((badge) => badge.earned).map((badge) => ({
+          id: badge.code,
+          earnedAt: badge.earnedAt,
+          badge: { id: badge.code, name: badge.name, iconUrl: badge.iconUrl },
+        })) as typeof user.badges
+      } catch (error) {
+        console.error("[api/student] no se pudieron cargar insignias externas:", error)
+      }
+    }
     const streakActivities = await prisma.activity.findMany({ where: { userId, action: "ACADEMIC_DAILY_ACTIVITY" }, select: { createdAt: true }, orderBy: { createdAt: "desc" } })
 
     // Obtener nivel actual
@@ -197,7 +211,7 @@ export async function GET() {
         pointsToNextLevel: nextLevel ? nextLevel.minPoints - totalPoints : 0,
         activeMissionsCount: activeMissions.length,
         completedMissionsCount: completedMissions.length,
-        badgesCount: user.badges.length,
+        badgesCount: resolvedBadges.length,
         streak: calculateStreak(streakActivities)
       },
       missions: user.missions.map((m) => ({
@@ -210,7 +224,7 @@ export async function GET() {
         status: m.status,
         completedAt: m.completedAt
       })),
-      recentBadges: user.badges.slice(0, 5).map((b) => ({
+      recentBadges: resolvedBadges.slice(0, 5).map((b) => ({
         id: b.badge.id,
         name: b.badge.name,
         icon: b.badge.iconUrl,
