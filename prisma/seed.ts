@@ -628,13 +628,15 @@ async function seedDemoHistory(studentId: string, programId: string) {
     if (semesterNumber > DEMO_CURRENT_SEMESTER) continue
 
     const isCurrent = semesterNumber === DEMO_CURRENT_SEMESTER
+    const pastYear = 2019 + semesterNumber - 1
+    const pastSemester = semesterNumber % 2 === 0 ? 2 : 1
+    const pastPeriod = `${pastYear}-${pastSemester}`
+
     await prisma.enrollment.create({
       data: {
         studentId,
         courseId: course.id,
-        semesterCode: isCurrent
-          ? CURRENT_PERIOD
-          : `${2019 + semesterNumber - 1}-${semesterNumber % 2 === 0 ? 2 : 1}`,
+        semesterCode: isCurrent ? CURRENT_PERIOD : pastPeriod,
         status: isCurrent ? 'CURSANDO' : 'APROBADO',
         grade: isCurrent ? null : DEMO_HISTORY_GRADES[(semesterNumber - 1) % 6],
       },
