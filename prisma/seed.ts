@@ -13,7 +13,9 @@ const adapter = new PrismaPg({ connectionString })
 const prisma = new PrismaClient({ adapter })
 
 // Periodo academico vigente: el semestre 1 va de enero a junio, el 2 de julio a diciembre.
-const CURRENT_PERIOD = `${new Date().getFullYear()}-${new Date().getMonth() < 6 ? 1 : 2}`
+const currentMonth = new Date().getMonth()
+const currentSemester = currentMonth < 6 ? 1 : 2
+const CURRENT_PERIOD = `${new Date().getFullYear()}-${currentSemester}`
 
 // Semestres que cada estudiante demo tiene en curso; el resto de su historia
 // academica queda en estado APROBADO.
