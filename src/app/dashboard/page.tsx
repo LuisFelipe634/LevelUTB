@@ -8,7 +8,6 @@ import {
   TrendingUp,
   Award,
   AlertTriangle,
-  Bell,
   ChevronRight,
   Flame,
   ChevronDown,
@@ -212,9 +211,6 @@ export default function Dashboard() {
   const activeMissions = data.missions
     .filter((m) => m.status === "EN_PROGRESO" || m.status === "PENDIENTE")
     .slice(0, 3)
-
-  // Obtener no leídas para alertas
-  const alerts = data.notifications.slice(0, 3)
 
   // Notificaciones urgentes de ruta recomendada del docente (recuadro flotante)
   const urgentRouteNotifications = data.notifications.filter(
@@ -437,7 +433,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Badges & Alerts */}
+        {/* Recent badges */}
         <div className="space-y-6">
           {/* Recent Badges */}
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xs p-6 border border-gray-200 dark:border-gray-700">
@@ -479,62 +475,6 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Alerts */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xs p-6 border border-gray-200 dark:border-gray-700">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="font-semibold text-gray-900 dark:text-white">Notificaciones</h2>
-              <Link
-                href="/notificaciones"
-                className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
-              >
-                Ver todas
-              </Link>
-            </div>
-            <div className="space-y-3">
-              {alerts.length > 0 ? (
-                alerts.map((alert) => (
-                  <div
-                    key={alert.id}
-                    className={`flex items-start gap-3 p-3 rounded-lg ${
-                      alert.type === "ALERTA_RIESGO"
-                        ? "bg-yellow-50 dark:bg-yellow-900/20"
-                        : alert.type === "WARNING"
-                        ? "bg-orange-50 dark:bg-orange-900/20"
-                        : "bg-blue-50 dark:bg-blue-900/20"
-                    }`}
-                  >
-                    <AlertTriangle
-                      className={`w-5 h-5 mt-0.5 ${
-                        alert.type === "ALERTA_RIESGO"
-                          ? "text-yellow-600 dark:text-yellow-400"
-                          : alert.type === "WARNING"
-                          ? "text-orange-600 dark:text-orange-400"
-                          : "text-blue-600 dark:text-blue-400"
-                      }`}
-                    />
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-900 dark:text-white">
-                        {alert.title}
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        {alert.message}
-                      </p>
-                    </div>
-                    {!alert.isRead && (
-                      <span className="w-2 h-2 bg-blue-500 rounded-full mt-2" />
-                    )}
-                  </div>
-                ))
-              ) : (
-                <div className="text-center py-4">
-                  <Bell className="w-8 h-8 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    No hay notificaciones nuevas
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
         </div>
       </div>
 

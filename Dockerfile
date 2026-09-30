@@ -24,6 +24,7 @@ COPY --chown=node:node tsconfig.json next.config.ts postcss.config.mjs eslint.co
 COPY --chown=node:node src ./src
 COPY --chown=node:node prisma ./prisma
 COPY --chown=node:node public ./public
+COPY --chown=node:node scripts ./scripts
 
 # "npm run" y no "npx": el binario viene de node_modules (version fijada por el
 # lockfile) y nunca se descarga en tiempo de build.

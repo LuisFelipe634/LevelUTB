@@ -38,6 +38,7 @@ setup.sh
 
 # Utilidades de desarrollo
 **/scripts
+!**/scripts/
 **/.eslintcache
 **/.vscode
 **/.idea

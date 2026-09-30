@@ -13,6 +13,7 @@
     "db:seed": "tsx prisma/seed.ts",
     "db:seed-if-empty": "tsx prisma/seed-if-empty.ts",
     "db:import-proa": "tsx scripts/import-proa.ts",
+    "db:sync-badges": "tsx scripts/sync-badges.ts",
     "db:reset": "prisma db push --force-reset && npm run db:seed",
     "db:studio": "prisma studio"
   },

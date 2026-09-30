@@ -69,15 +69,15 @@ await app.register(cors, {
 });
 
 // API key middleware - only enforces if env var is set
-const requiredKey = process.env.API_KEY || process.env.UNIVERSITY_API_KEY || "";
-app.addHook("onRequest", (request: FastifyRequest, reply: FastifyReply) => {
-  if (request.url === "/health") return;
-  if (!requiredKey) return;
-  const key = (request.headers["x-api-key"] as string) || (request.headers["authorization"] as string)?.replace("Bearer ", "");
+const requiredKey = process.env.API_KEY || process.env.UNIVERSITY_API_KEY || ""
+app.addHook("onRequest", async (request: FastifyRequest, reply: FastifyReply) => {
+  if (request.url === "/health") return
+  if (!requiredKey) return
+  const key = (request.headers["x-api-key"] as string) || (request.headers["authorization"] as string)?.replace("Bearer ", "")
   if (key !== requiredKey) {
-    reply.code(401).send({ error: "No autorizado - x-api-key inválida" });
+    return reply.code(401).send({ error: "No autorizado - x-api-key inválida" })
   }
-});
+})
 
 app.get("/health", () => {
   return { ok: true, uptime: process.uptime(), currentPeriod: fixtures.currentPeriod, program: fixtures.program.code };

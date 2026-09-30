@@ -1,0 +1,98 @@
+{
+  "_comment": "Catalogo simulado de insignias institucionales del nuevo modelo UTB.",
+  "catalogVersion": "2026.3",
+  "issuer": "Universidad Tecnologica de Bolivar",
+  "badges": [
+    {
+      "code": "UTB-CS-01",
+      "name": "Core Skills",
+      "description": "Reconocimiento por el desarrollo de competencias fundamentales.",
+      "iconUrl": "CS",
+      "category": "PROGRESO",
+      "requiredLevel": 1,
+      "pointsRequired": null
+    },
+    {
+      "code": "UTB-CS-PLUS-01",
+      "name": "Core Skills Plus",
+      "description": "Reconocimiento avanzado por competencias fundamentales.",
+      "iconUrl": "CSP",
+      "category": "PROGRESO",
+      "requiredLevel": 3,
+      "pointsRequired": null
+    },
+    {
+      "code": "UTB-PS-01",
+      "name": "Power Skills",
+      "description": "Reconocimiento por el desarrollo de habilidades de crecimiento personal.",
+      "iconUrl": "PS",
+      "category": "HABITO",
+      "requiredLevel": 1,
+      "pointsRequired": null
+    },
+    {
+      "code": "UTB-PS-PLUS-01",
+      "name": "Power Skills Plus",
+      "description": "Reconocimiento avanzado por habilidades de crecimiento personal.",
+      "iconUrl": "PSP",
+      "category": "HABITO",
+      "requiredLevel": 3,
+      "pointsRequired": null
+    },
+    {
+      "code": "UTB-LU-01",
+      "name": "Lideres UTB",
+      "description": "Reconocimiento por liderazgo y participacion en la comunidad UTB.",
+      "iconUrl": "LU",
+      "category": "IMPACTO_SOCIAL",
+      "requiredLevel": 1,
+      "pointsRequired": null
+    },
+    {
+      "code": "UTB-LU-PLUS-01",
+      "name": "Lideres UTB Plus",
+      "description": "Reconocimiento avanzado por liderazgo e impacto institucional.",
+      "iconUrl": "LUP",
+      "category": "IMPACTO_SOCIAL",
+      "requiredLevel": 4,
+      "pointsRequired": null
+    },
+    {
+      "code": "UTB-CP-01",
+      "name": "Conexiones Profesionales",
+      "description": "Reconocimiento por la construccion de conexiones profesionales.",
+      "iconUrl": "CP",
+      "category": "COMPETENCIA",
+      "requiredLevel": 1,
+      "pointsRequired": null
+    },
+    {
+      "code": "UTB-CP-PLUS-01",
+      "name": "Conexiones Profesionales Plus",
+      "description": "Reconocimiento avanzado por conexiones profesionales.",
+      "iconUrl": "CPP",
+      "category": "COMPETENCIA",
+      "requiredLevel": 4,
+      "pointsRequired": null
+    }
+  ],
+  "studentBadges": {
+    "2019123456": [
+      { "code": "UTB-CS-01", "earnedAt": "2026-01-18T14:00:00.000Z", "evidence": "Competencias fundamentales desarrolladas." },
+      { "code": "UTB-CS-PLUS-01", "earnedAt": "2026-03-18T14:00:00.000Z", "evidence": "Nivel avanzado de competencias fundamentales." },
+      { "code": "UTB-PS-01", "earnedAt": "2026-04-10T14:00:00.000Z", "evidence": "Habilidades de crecimiento personal demostradas." },
+      { "code": "UTB-LU-01", "earnedAt": "2026-05-22T14:00:00.000Z", "evidence": "Participacion en la comunidad UTB." },
+      { "code": "UTB-CP-01", "earnedAt": "2026-06-12T14:00:00.000Z", "evidence": "Conexion profesional registrada." }
+    ],
+    "2020123456": [
+      { "code": "UTB-CS-01", "earnedAt": "2026-02-14T14:00:00.000Z", "evidence": "Competencias fundamentales desarrolladas." },
+      { "code": "UTB-PS-01", "earnedAt": "2026-04-02T14:00:00.000Z", "evidence": "Habilidades de crecimiento personal demostradas." },
+      { "code": "UTB-PS-PLUS-01", "earnedAt": "2026-06-02T14:00:00.000Z", "evidence": "Nivel avanzado de habilidades personales." },
+      { "code": "UTB-LU-01", "earnedAt": "2026-07-09T14:00:00.000Z", "evidence": "Liderazgo en actividad institucional." }
+    ],
+    "2021123456": [
+      { "code": "UTB-CS-01", "earnedAt": "2026-03-08T14:00:00.000Z", "evidence": "Competencias fundamentales desarrolladas." },
+      { "code": "UTB-CP-01", "earnedAt": "2026-05-16T14:00:00.000Z", "evidence": "Conexion profesional registrada." }
+    ]
+  }
+}
