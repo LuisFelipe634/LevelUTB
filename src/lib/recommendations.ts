@@ -51,28 +51,38 @@ async function fetchStudentData(studentProfileId: string) {
   return { profile: profile!, allCourses }
 }
 
+function getCourseIdFromHistory(record: typeof profile.academicHistory[0], allCourses: Awaited<ReturnType<typeof fetchStudentData>>["allCourses"]): string | null {
+  return allCourses.find((c) => c.code === record.courseCode)?.id ?? null
+}
+
 function buildCourseStatus(profile: Awaited<ReturnType<typeof fetchStudentData>>["profile"], allCourses: Awaited<ReturnType<typeof fetchStudentData>>["allCourses"]): CourseStatus {
   const approved = new Set<string>()
   const failed = new Set<string>()
   const inProgress = new Set<string>()
 
   for (const enrollment of profile.enrollments) {
-    if (enrollment.status === "APROBADO") {
-      approved.add(enrollment.courseId)
-    } else if (enrollment.status === "REPROBADO") {
-      failed.add(enrollment.courseId)
-    } else if (enrollment.status === "CURSANDO" || enrollment.status === "INSCRITO") {
-      inProgress.add(enrollment.courseId)
+    switch (enrollment.status) {
+      case "APROBADO":
+        approved.add(enrollment.courseId)
+        break
+      case "REPROBADO":
+        failed.add(enrollment.courseId)
+        break
+      case "CURSANDO":
+      case "INSCRITO":
+        inProgress.add(enrollment.courseId)
+        break
     }
   }
 
   for (const record of profile.academicHistory) {
+    const courseId = getCourseIdFromHistory(record, allCourses)
+    if (!courseId) continue
+
     if (record.status === "APROBADO") {
-      const course = allCourses.find((c) => c.code === record.courseCode)
-      if (course) approved.add(course.id)
-    } else if (record.status === "REPROBADO") {
-      const course = allCourses.find((c) => c.code === record.courseCode)
-      if (course && !approved.has(course.id)) failed.add(course.id)
+      approved.add(courseId)
+    } else if (record.status === "REPROBADO" && !approved.has(courseId)) {
+      failed.add(courseId)
     }
   }
 
