@@ -152,6 +152,17 @@ export default function Dashboard() {
 
   const loadStudentData = useEffectEvent(fetchStudentData)
 
+  function getRecommendationClassName(priority: number): string {
+    switch (priority) {
+      case 1:
+        return "bg-orange-50 dark:bg-orange-900/15 border-orange-200 dark:border-orange-800"
+      case 2:
+        return "bg-white dark:bg-gray-800/60 border-gray-200 dark:border-gray-700"
+      default:
+        return "bg-green-50 dark:bg-green-900/15 border-green-200 dark:border-green-800"
+    }
+  }
+
   useEffect(() => {
     // The event loads external student data and updates the dashboard state.
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -259,13 +270,7 @@ export default function Dashboard() {
               {recommendations.map((rec) => (
                 <div
                   key={rec.id}
-                  className={`flex items-start gap-3 p-3 rounded-lg border transition-all ${
-                    rec.priority === 1
-                      ? "bg-orange-50 dark:bg-orange-900/15 border-orange-200 dark:border-orange-800"
-                      : rec.priority === 2
-                      ? "bg-white dark:bg-gray-800/60 border-gray-200 dark:border-gray-700"
-                      : "bg-green-50 dark:bg-green-900/15 border-green-200 dark:border-green-800"
-                  }`}
+                  className={`flex items-start gap-3 p-3 rounded-lg border transition-all ${getRecommendationClassName(rec.priority)}`}
                 >
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-sm text-gray-900 dark:text-white">
