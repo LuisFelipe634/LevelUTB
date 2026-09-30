@@ -120,8 +120,9 @@ export async function GET() {
       const currentSemester = getCurrentSemester(profile.enrollments, profile.currentSemester, period)
       const averageGrade = getAverageGrade(profile.academicHistory, profile.enrollments, profile.averageGrade)
       const approvedCredits = Array.from(new Map(profile.enrollments.filter((enrollment) => enrollment.status === "APROBADO").map((enrollment) => [enrollment.courseId, enrollment.course.credits])).values()).reduce((total, credits) => total + credits, 0)
-      const academicRisk = averageGrade < 3 ? "Requiere acompañamiento por promedio bajo" :
-        approvedCredits < currentSemester * 12 ? "Avance de créditos por debajo de lo esperado" : null
+      let academicRisk: string | null = null
+      if (averageGrade < 3) academicRisk = "Requiere acompañamiento por promedio bajo"
+      else if (approvedCredits < currentSemester * 12) academicRisk = "Avance de créditos por debajo de lo esperado"
       const assignedStudentRewards = student.rewards.filter((reward) => assignedCourseIds.includes(reward.courseId) && (assignedPeriods.length === 0 || profile.enrollments.some((enrollment) => enrollment.courseId === reward.courseId && assignedPeriods.includes(enrollment.semesterCode))))
       const pendingRewards = assignedStudentRewards.filter((reward) => reward.status === "SOLICITADO")
       const rewardStatuses = [...new Set(assignedStudentRewards.map((reward) => reward.status))]
@@ -140,7 +141,12 @@ export async function GET() {
         totalPoints: student.points.reduce((total, point) => total + point.amount, 0),
         earnedBadgesCount: earnedBadges.length,
         badges: earnedBadges.map((badge) => ({ name: badge.name, icon: badge.iconUrl, category: badge.category, earnedAt: badge.earnedAt, evidence: badge.evidence, progressCurrent: 1, progressTarget: 1 })),
-        rewardStatus: pendingRewards.length ? "PENDIENTE" : rewardStatuses.includes("APROBADO") ? "APROBADO" : rewardStatuses.length ? "REALIZADO" : "SIN_NOVEDADES",
+        rewardStatus: (() => {
+          if (pendingRewards.length) return "PENDIENTE"
+          if (rewardStatuses.includes("APROBADO")) return "APROBADO"
+          if (rewardStatuses.length) return "REALIZADO"
+          return "SIN_NOVEDADES"
+        })(),
         pendingRewardsCount: pendingRewards.length,
         pendingRewardCourseIds: pendingRewards.map((reward) => reward.courseId),
         rewardHistory: assignedStudentRewards.map((reward) => ({ id: reward.id, name: reward.reward.name, status: reward.status, pointsSpent: reward.pointsSpent, courseCode: reward.course.code, requestedAt: reward.requestedAt, reviewedAt: reward.reviewedAt })),

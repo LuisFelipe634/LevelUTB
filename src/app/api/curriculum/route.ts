@@ -38,11 +38,13 @@ export async function GET() {
     const currentSemester = getCurrentSemester(profile.enrollments, profile.currentSemester, period)
     // Precedencia determinista cuando un curso tiene varias inscripciones:
     // APROBADO > CURSANDO del periodo vigente > CURSANDO de otro periodo > REPROBADO > resto
-    const rankEnrollment = (status: string, semesterCode: string) =>
-      status === "APROBADO" ? 0 :
-      status === "CURSANDO" && semesterCode === period ? 1 :
-      status === "CURSANDO" ? 2 :
-      status === "REPROBADO" ? 3 : 4
+    const rankEnrollment = (status: string, semesterCode: string) => {
+      if (status === "APROBADO") return 0
+      if (status === "CURSANDO" && semesterCode === period) return 1
+      if (status === "CURSANDO") return 2
+      if (status === "REPROBADO") return 3
+      return 4
+    }
     const enrollmentByCourse = new Map<string, (typeof profile.enrollments)[number]>()
     for (const enrollment of profile.enrollments) {
       const current = enrollmentByCourse.get(enrollment.courseId)
@@ -71,9 +73,11 @@ export async function GET() {
       const semesterAverage = entry && entry.credits > 0 ? Math.round((entry.weightedSum / entry.credits) * 100) / 100 : null
       const courses = semester.courses.map((course) => {
         const enrollment = enrollmentByCourse.get(course.id)
-        const status = enrollment?.status === "APROBADO" ? "completed" :
-          enrollment?.status === "CURSANDO" ? "in_progress" :
-            enrollment?.status === "REPROBADO" ? "available" : "blocked"
+        let status: string
+        if (enrollment?.status === "APROBADO") status = "completed"
+        else if (enrollment?.status === "CURSANDO") status = "in_progress"
+        else if (enrollment?.status === "REPROBADO") status = "available"
+        else status = "blocked"
         const prerequisitesMet = course.prerequisites.every(({ prerequisite }) => approvedIds.has(prerequisite.id))
         const missingPrerequisites = course.prerequisites
           .filter(({ prerequisite }) => !approvedIds.has(prerequisite.id))
