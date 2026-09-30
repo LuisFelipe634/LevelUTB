@@ -8,6 +8,11 @@ import { getAcademicSource, isExternalAcademicEnabled } from "@/lib/getAcademicS
 import { getBadgeSource } from "@/lib/getBadgeSource"
 import type { AcademicEnrollment } from "@/lib/academicSource"
 
+function currentPeriod() {
+  const now = new Date()
+  return `${now.getFullYear()}-${now.getMonth() < 6 ? 1 : 2}`
+}
+
 type Resolved<T> = { value: T } | { error: NextResponse }
 
 type AcademicData = {
@@ -92,11 +97,6 @@ function resolveLevels(levels: LevelRow[], totalPoints: number) {
 }
 
 export async function GET() {
-  function currentPeriod() {
-    const now = new Date()
-    return `${now.getFullYear()}-${now.getMonth() < 6 ? 1 : 2}`
-  }
-
   try {
     const session = await requireStudentUserId()
     if ("error" in session) return session.error
