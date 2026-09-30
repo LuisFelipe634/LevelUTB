@@ -4,11 +4,12 @@ import { auth } from "@/lib/auth"
 import { getAverageGrade, getCurrentSemester } from "@/lib/academic"
 import { getBadgeSource } from "@/lib/getBadgeSource"
 
+function currentPeriod() {
+  const now = new Date()
+  return `${now.getFullYear()}-${now.getMonth() < 6 ? 1 : 2}`
+}
+
 export async function GET() {
-  function currentPeriod() {
-    const now = new Date()
-    return `${now.getFullYear()}-${now.getMonth() < 6 ? 1 : 2}`
-  }
 
   try {
     const session = await auth()
