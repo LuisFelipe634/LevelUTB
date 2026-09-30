@@ -118,12 +118,13 @@ export async function POST(request: Request) {
       switch (error.message) {
         case "REWARD_NOT_FOUND":
           return NextResponse.json({ error: "Recompensa no encontrada o inactiva" }, { status: 404 })
-        case "INELIGIBLE_COURSE":
+        case "INELIGIBLE_COURSE": {
           const period = getCurrentPeriod()
           return NextResponse.json(
             { error: `Solo puedes reclamar la recompensa para un curso matriculado oficialmente en el semestre actual del periodo ${period}. Verifica tus cursos vigentes en /malla.` },
             { status: 400 }
           )
+        }
         case "MAX_USES_REACHED":
           return NextResponse.json({ error: "Has alcanzado el límite de usos para esta recompensa" }, { status: 400 })
         case "INSUFFICIENT_POINTS":
