@@ -7,8 +7,8 @@
  * Este wrapper evita re-sembrar sobre una base con datos reales.
  */
 import "dotenv/config";
-import { spawnSync } from "child_process";
-import { join } from "path";
+import { spawnSync } from "node:child_process";
+import { join } from "node:path";
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 
