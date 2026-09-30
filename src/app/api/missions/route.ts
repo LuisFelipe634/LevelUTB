@@ -1,15 +1,16 @@
 import { NextResponse } from "next/server"
-import type { Mission, StudentMission } from "@prisma/client"
-import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
-import { getAverageGrade } from "@/lib/academic"
-import { verifyMission } from "@/lib/missionVerification"
+import { getGetMissionsUseCase } from "@/application/missions/missionFactory"
+import { getAcceptMissionUseCase } from "@/application/missions/missionFactory"
+import { getStartMissionUseCase } from "@/application/missions/missionFactory"
+import { getCompleteMissionUseCase } from "@/application/missions/missionFactory"
+import { getVerifyMissionUseCase } from "@/application/missions/missionFactory"
+import { getAwardPointsUseCase } from "@/application/missions/missionFactory"
+import { getCreateNotificationUseCase } from "@/application/missions/missionFactory"
+import { buildStartMetadata } from "@/application/missions/missionFactory"
 
 type StudentSession = { userId: string } | { error: NextResponse }
-type MissionContext = { mission: Mission; existingMission: StudentMission | null }
-type Resolved<T> = { value: T } | { error: NextResponse }
 
-// Sesión de estudiante: compartida por GET y POST para no duplicar el 401/403.
 async function requireStudentSession(): Promise<StudentSession> {
   const session = await auth()
 
@@ -45,82 +46,23 @@ export async function GET() {
 
     const { userId } = session
 
-    // Obtener perfil del estudiante
+    // Obtener perfil del estudiante para el nivel
+    const { prisma } = await import("@/lib/prisma")
     const studentProfile = await prisma.studentProfile.findUnique({
-      where: { userId }
+      where: { userId },
+      select: { level: true },
     })
 
     if (!studentProfile) {
       return NextResponse.json({ error: "Perfil no encontrado" }, { status: 404 })
     }
 
-    // Obtener misiones disponibles (activas y con nivel adecuado)
-    const availableMissions = await prisma.mission.findMany({
-      where: {
-        isActive: true,
-        OR: [
-          { requiredLevel: null },
-          { requiredLevel: { lte: studentProfile.level } }
-        ]
-      },
-      include: {
-        course: true
-      }
-    })
-
-    // Obtener misiones del estudiante
-    const studentMissions = await prisma.studentMission.findMany({
-      where: { studentId: userId },
-      include: {
-        mission: true
-      }
-    })
-
-    // Combinar misiones disponibles con el estado del estudiante
-    const missions = availableMissions.map((mission) => {
-      const studentMission = studentMissions.find(
-        (sm) => sm.missionId === mission.id
-      )
-
-      return {
-        id: mission.id,
-        title: mission.title,
-        description: mission.description,
-        type: mission.type,
-        points: mission.pointsReward,
-        autoVerify: mission.autoVerify,
-        requiredLevel: mission.requiredLevel,
-        startDate: mission.startDate,
-        endDate: mission.endDate,
-        course: mission.course ? {
-          id: mission.course.id,
-          name: mission.course.name,
-          code: mission.course.code
-        } : null,
-        // Estado del estudiante en esta misión
-        studentMissionId: studentMission?.id || null,
-        status: studentMission?.status || "NO_ASIGNADA",
-        progress: studentMission?.progress || 0,
-        completedAt: studentMission?.completedAt || null,
-        evidence: studentMission?.evidence || null,
-        reviewComment: studentMission?.reviewComment || null
-      }
-    })
-
-    // Calcular puntos ganados de misiones completadas
-    const totalPointsFromMissions = studentMissions
-      .filter((sm) => sm.status === "COMPLETADA" || sm.status === "VERIFICADA")
-      .reduce((acc, sm) => acc + sm.mission.pointsReward, 0)
+    const getMissionsUseCase = getGetMissionsUseCase()
+    const result = await getMissionsUseCase.execute(userId, studentProfile.level)
 
     return NextResponse.json({
-      missions,
-      stats: {
-        total: missions.length,
-        pending: missions.filter((m) => m.status === "PENDIENTE" || m.status === "NO_ASIGNADA").length,
-        inProgress: missions.filter((m) => m.status === "EN_PROGRESO").length,
-        completed: missions.filter((m) => m.status === "COMPLETADA" || m.status === "VERIFICADA").length,
-        totalPointsEarned: totalPointsFromMissions
-      }
+      missions: result.missions,
+      stats: result.stats,
     })
   } catch (error) {
     console.error("Error fetching missions:", error)
@@ -131,19 +73,18 @@ export async function GET() {
   }
 }
 
-// Valida misión, nivel y asignación previa en el mismo orden que antes, para que
-// los errores respondan igual.
 async function loadMissionContext(
   userId: string,
   missionId: unknown
-): Promise<Resolved<MissionContext>> {
+): Promise<{ value: { mission: { id: string; isActive: boolean; requiredLevel: number | null; autoVerify: boolean; verificationKey: string | null; verificationValue: string | null; title: string; pointsReward: number } } & { existingMission: { id: string; status: string; metadata: string | null; evidence: string | null } | null } } | { error: NextResponse }> {
   if (!missionId) {
     return {
       error: NextResponse.json({ error: "ID de misión requerido" }, { status: 400 })
     }
   }
 
-  // Verificar que la misión existe y está activa
+  const { prisma } = await import("@/lib/prisma")
+
   const mission = await prisma.mission.findUnique({ where: { id: missionId as string } })
   if (!mission || !mission.isActive) {
     return {
@@ -154,7 +95,6 @@ async function loadMissionContext(
     }
   }
 
-  // Verificar nivel del estudiante
   const studentProfile = await prisma.studentProfile.findUnique({ where: { userId } })
   if (!studentProfile) {
     return { error: NextResponse.json({ error: "Perfil no encontrado" }, { status: 404 }) }
@@ -169,7 +109,6 @@ async function loadMissionContext(
     }
   }
 
-  // Buscar si ya tiene esta misión
   const existingMission = await prisma.studentMission.findUnique({
     where: {
       studentId_missionId: {
@@ -179,52 +118,49 @@ async function loadMissionContext(
     }
   })
 
-  return { value: { mission, existingMission } }
-}
-
-async function acceptMission(userId: string, mission: Mission): Promise<NextResponse> {
-  const studentMission = await prisma.studentMission.create({
-    data: {
-      studentId: userId,
-      missionId: mission.id,
-      status: "PENDIENTE",
-      progress: 0
+  return {
+    value: {
+      mission: {
+        id: mission.id,
+        isActive: mission.isActive,
+        requiredLevel: mission.requiredLevel,
+        autoVerify: mission.autoVerify,
+        verificationKey: mission.verificationKey,
+        verificationValue: mission.verificationValue,
+        title: mission.title,
+        pointsReward: mission.pointsReward,
+      },
+      existingMission: existingMission ? {
+        id: existingMission.id,
+        status: existingMission.status,
+        metadata: existingMission.metadata,
+        evidence: existingMission.evidence,
+      } : null
     }
-  })
-
-  // Crear notificación
-  await prisma.notification.create({
-    data: {
-      userId,
-      title: "Misión aceptada",
-      message: `Has aceptado la misión: ${mission.title}`,
-      type: "MISION_DISPONIBLE",
-      link: "/misiones"
-    }
-  })
-
-  return NextResponse.json({ studentMission })
-}
-
-// La metadata de arranque es una captura auxiliary: si falla, en produccion se
-// sigue con null, y solo en desarrollo se corta con 500.
-async function buildStartMetadataSafe(
-  mission: Mission,
-  userId: string
-): Promise<Resolved<string | null>> {
-  try {
-    return { value: await buildStartMetadata(mission, userId) }
-  } catch (metaError) {
-    console.error("Error en buildStartMetadata:", metaError)
-    const response = devError("Error al preparar la misión", metaError)
-    return response ? { error: response } : { value: null }
   }
+}
+
+async function acceptMission(userId: string, mission: { id: string; title: string }): Promise<NextResponse> {
+  const acceptMissionUseCase = getAcceptMissionUseCase()
+  const createNotificationUseCase = getCreateNotificationUseCase()
+
+  const result = await acceptMissionUseCase.execute(userId, mission.id)
+
+  await createNotificationUseCase.execute(
+    userId,
+    "Misión aceptada",
+    `Has aceptado la misión: ${mission.title}`,
+    "MISION_DISPONIBLE",
+    "/misiones"
+  )
+
+  return NextResponse.json({ studentMission: result.studentMission })
 }
 
 async function startMission(
   userId: string,
-  mission: Mission,
-  existingMission: StudentMission | null
+  mission: { id: string; verificationKey: string | null },
+  existingMission: { id: string; status: string } | null
 ): Promise<NextResponse> {
   if (!existingMission || !["PENDIENTE", "RECHAZADA"].includes(existingMission.status)) {
     return NextResponse.json(
@@ -236,32 +172,34 @@ async function startMission(
   const metadata = await buildStartMetadataSafe(mission, userId)
   if ("error" in metadata) return metadata.error
 
-  const studentMission = await prisma.studentMission.update({
-    where: { id: existingMission.id },
-    data: {
-      status: "EN_PROGRESO",
-      progress: 0,
-      completedAt: null,
-      evidence: null,
-      metadata: metadata.value,
-      verifiedBy: null,
-      verifiedAt: null,
-      reviewComment: null
-    }
-  })
+  const startMissionUseCase = getStartMissionUseCase()
+  const result = await startMissionUseCase.execute(userId, mission.id, metadata.value)
 
-  return NextResponse.json({ studentMission })
+  return NextResponse.json({ studentMission: result.studentMission })
 }
 
-// Verificación automática por regla académica. Sin autoVerify no hay mensaje.
+async function buildStartMetadataSafe(
+  mission: { verificationKey: string | null },
+  userId: string
+): Promise<{ value: string | null } | { error: NextResponse }> {
+  try {
+    return { value: await buildStartMetadata(mission, userId) }
+  } catch (metaError) {
+    console.error("Error en buildStartMetadata:", metaError)
+    const response = devError("Error al preparar la misión", metaError)
+    return response ? { error: response } : { value: null }
+  }
+}
+
 async function runAutoVerification(
-  mission: Mission,
+  mission: { autoVerify: boolean; verificationKey: string | null; verificationValue: string | null },
   userId: string,
   metadata: string | null
-): Promise<Resolved<string | null>> {
+): Promise<{ value: string | null } | { error: NextResponse }> {
   if (!mission.autoVerify || !mission.verificationKey) return { value: null }
 
-  const verification = await verifyMission(mission, userId, metadata)
+  const verifyMissionUseCase = getVerifyMissionUseCase()
+  const verification = await verifyMissionUseCase.execute(mission, userId, metadata)
   if (!verification.passed) {
     return {
       error: NextResponse.json(
@@ -279,7 +217,7 @@ async function runAutoVerification(
 }
 
 function buildCompletionEvidence(
-  mission: Mission,
+  mission: { autoVerify: boolean },
   submittedEvidence: string | undefined,
   verificationMessage: string | null
 ): string | null {
@@ -289,54 +227,10 @@ function buildCompletionEvidence(
     : "Cumplimiento registrado automáticamente"
 }
 
-function persistCompletion(
-  userId: string,
-  mission: Mission,
-  existingMission: StudentMission,
-  evidence: string | null
-): Promise<StudentMission> {
-  return prisma.$transaction(async (transaction) => {
-    const completedMission = await transaction.studentMission.update({
-      where: { id: existingMission.id },
-      data: {
-        status: mission.autoVerify ? "COMPLETADA" : "EN_REVISION",
-        progress: 100,
-        completedAt: new Date(),
-        evidence
-      }
-    })
-
-    if (mission.autoVerify) {
-      await transaction.point.create({
-        data: {
-          userId,
-          amount: mission.pointsReward,
-          source: "MISION_COMPLETADA",
-          description: `Misión completada: ${mission.title}`
-        }
-      })
-    }
-
-    await transaction.notification.create({
-      data: {
-        userId,
-        title: mission.autoVerify ? "Misión completada" : "Misión enviada a revisión",
-        message: mission.autoVerify
-          ? `Completaste «${mission.title}» y ganaste ${mission.pointsReward} puntos.`
-          : `Tu evidencia para «${mission.title}» será revisada por un docente.`,
-        type: mission.autoVerify ? "LOGRO_OBTENIDO" : "INFO",
-        link: "/misiones"
-      }
-    })
-
-    return completedMission
-  })
-}
-
 async function completeMission(
   userId: string,
-  mission: Mission,
-  existingMission: StudentMission,
+  mission: { id: string; autoVerify: boolean; verificationKey: string | null; verificationValue: string | null; title: string; pointsReward: number },
+  existingMission: { id: string; status: string; metadata: string | null; evidence: string | null },
   evidence: unknown
 ): Promise<NextResponse> {
   if (existingMission.status !== "EN_PROGRESO") {
@@ -358,14 +252,36 @@ async function completeMission(
   const verification = await runAutoVerification(mission, userId, existingMission.metadata)
   if ("error" in verification) return verification.error
 
-  const studentMission = await persistCompletion(
+  const completeMissionUseCase = getCompleteMissionUseCase()
+  const result = await completeMissionUseCase.execute(
     userId,
-    mission,
-    existingMission,
-    buildCompletionEvidence(mission, submittedEvidence, verification.value)
+    mission.id,
+    buildCompletionEvidence(mission, submittedEvidence, verification.value),
+    verification.value ? { passed: true, progress: 100, message: verification.value } : null
   )
 
-  return NextResponse.json({ studentMission })
+  if (mission.autoVerify) {
+    const awardPointsUseCase = getAwardPointsUseCase()
+    await awardPointsUseCase.execute(
+      userId,
+      mission.pointsReward,
+      "MISION_COMPLETADA",
+      `Misión completada: ${mission.title}`
+    )
+  }
+
+  const createNotificationUseCase = getCreateNotificationUseCase()
+  await createNotificationUseCase.execute(
+    userId,
+    mission.autoVerify ? "Misión completada" : "Misión enviada a revisión",
+    mission.autoVerify
+      ? `Completaste «${mission.title}» y ganaste ${mission.pointsReward} puntos.`
+      : `Tu evidencia para «${mission.title}» será revisada por un docente.`,
+    mission.autoVerify ? "LOGRO_OBTENIDO" : "INFO",
+    "/misiones"
+  )
+
+  return NextResponse.json({ studentMission: result.studentMission })
 }
 
 // POST: Aceptar/ejecutar una misión
@@ -384,7 +300,6 @@ export async function POST(request: Request) {
     const { mission, existingMission } = context.value
 
     if (action === "accept") {
-      // Aceptar la misión
       if (existingMission) {
         return NextResponse.json(
           { error: "Ya tienes esta misión asignada" },
@@ -405,7 +320,7 @@ export async function POST(request: Request) {
           { status: 400 }
         )
       }
-      return completeMission(userId, mission, existingMission, evidence)
+      return completeMission(userId, { ...mission, verificationValue: mission.verificationValue }, existingMission, evidence)
     }
 
     return NextResponse.json(
@@ -421,22 +336,4 @@ export async function POST(request: Request) {
       { status: 500 }
     )
   }
-}
-
-// Captura la línea base (ej. promedio al inicio del período) para reglas de verificación automática
-async function buildStartMetadata(mission: { verificationKey: string | null }, userId: string): Promise<string | null> {
-  if (mission.verificationKey !== "MEJORAR_PROMEDIO") return null
-
-  const profile = await prisma.studentProfile.findUnique({
-    where: { userId },
-    include: {
-      enrollments: { include: { course: true } },
-      academicHistory: true,
-    },
-  })
-
-  if (!profile) return null
-
-  const initialAverage = getAverageGrade(profile.academicHistory, profile.enrollments, profile.averageGrade)
-  return JSON.stringify({ initialAverage })
 }

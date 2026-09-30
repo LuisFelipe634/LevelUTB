@@ -38,6 +38,7 @@ function BadgeOverviewCard({ group, badges, plus = false }: { group: typeof over
   const total = plus ? earned : categoryBadges.length
   const inProgress = Math.max(0, total - earned)
   const percentage = total ? Math.round((earned / total) * 100) : 0
+  const safePercentage = Math.min(100, Math.max(0, percentage))
 
   return (
     <article className="overflow-hidden rounded-2xl border border-[#e4e7eb] bg-white shadow-xs dark:border-gray-700 dark:bg-gray-800">
@@ -48,7 +49,7 @@ function BadgeOverviewCard({ group, badges, plus = false }: { group: typeof over
         </div>
         <div className="mt-5 flex items-center gap-5">
           <div className={`relative flex h-18.5 w-18.5 items-center justify-center rounded-full ${plus ? "border-[7px] border-emerald-500" : ""}`}>
-            <div className="absolute inset-0 rounded-full" style={{ background: `conic-gradient(#f39a08 ${percentage * 3.6}deg, transparent ${percentage * 3.6}deg)` }} />
+            <div className="absolute inset-0 rounded-full" style={{ background: `conic-gradient(#f39a08 ${safePercentage * 3.6}deg, #f39a08 ${safePercentage * 3.6}deg, transparent ${safePercentage * 3.6}deg)` }} />
             <div className="relative h-15 w-15 rounded-full bg-white dark:bg-gray-800" />
           </div>
           <div className="space-y-2 text-sm">
