@@ -134,7 +134,6 @@ app.get("/academic/students/:studentCode", (request: FastifyRequest<{ Params: { 
   const student = fixtures.students.find((s) => s.studentCode === studentCode);
   if (!student) return reply.code(404).send({ error: "Estudiante no encontrado" });
   const { enrollments: _ignored, ...rest } = student;
-  void _ignored;
   return rest;
 });
 
