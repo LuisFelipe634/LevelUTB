@@ -99,7 +99,10 @@ const SECTION_META: Record<Section, { title: string; description: string; icon: 
 }
 
 function rewardStatusLabel(status: CourseStudent["rewardStatus"], pending: number) {
-  if (status === "PENDIENTE") return `Canje pendiente${pending > 1 ? ` (${pending})` : ""}`
+  if (status === "PENDIENTE") {
+    const suffix = pending > 1 ? ` (${pending})` : ""
+    return `Canje pendiente${suffix}`
+  }
   if (status === "APROBADO") return "Recompensa aprobada"
   if (status === "REALIZADO") return "Canje realizado"
   return "Sin novedades"
