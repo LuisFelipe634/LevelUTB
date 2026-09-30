@@ -37,7 +37,7 @@ export class PrismaStudentRewardRepository implements StudentRewardRepository {
   }
 
   async countByStudentIdAndRewardId(studentId: string, rewardId: string, excludeStatus?: string): Promise<number> {
-    return prisma.studentReward.count({
+    return await prisma.studentReward.count({
       where: {
         studentId,
         rewardId,
