@@ -131,11 +131,14 @@ export function Header({ onToggleSidebar }: { onToggleSidebar: () => void }) {
     }
   }
 
-  const themeLabel = mounted
-    ? theme === "dark"
-      ? "Activar modo claro"
-      : "Activar modo oscuro"
-    : "Cambiar tema"
+  let themeLabel: string
+  if (!mounted) {
+    themeLabel = "Cambiar tema"
+  } else if (theme === "dark") {
+    themeLabel = "Activar modo claro"
+  } else {
+    themeLabel = "Activar modo oscuro"
+  }
 
   const themeIcon = mounted && theme === "dark" ? (
     <Sun className="w-5 h-5 text-gray-400" />
