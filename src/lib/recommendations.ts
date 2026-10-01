@@ -209,10 +209,11 @@ function addCreditFillRecommendation(
     const bestFitCourse = nextSemesterCourses.sort((a, b) => b.credits - a.credits)[0]
 
     if (bestFitCourse) {
+      const creditBonusText = profile.averageGrade >= 4.0 ? " Tu promedio ≥ 4.0 te da derecho a 20 créditos." : ""
       recommendations.push({
         type: "RELLENAR_CREDITOS",
         title: `💰 Rellena tu semestre con ${remainingCredits} créditos disponibles`,
-        description: `Te quedan ${remainingCredits} créditos disponibles este semestre. Puedes reemplazar una materia por "${bestFitCourse.name}" (${bestFitCourse.credits} créditos) para aprovechar tu cupo y terminar la carrera más rápido.${profile.averageGrade >= 4.0 ? " Tu promedio ≥ 4.0 te da derecho a 20 créditos." : ""}`,
+        description: `Te quedan ${remainingCredits} créditos disponibles este semestre. Puedes reemplazar una materia por "${bestFitCourse.name}" (${bestFitCourse.credits} créditos) para aprovechar tu cupo y terminar la carrera más rápido.${creditBonusText}`,
         priority: 2,
       })
     }
