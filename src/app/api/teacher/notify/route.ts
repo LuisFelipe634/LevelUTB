@@ -28,8 +28,8 @@ export async function POST(request: Request) {
       where: { id: teacherUserId },
       include: { teacherProfile: { include: { assignedCourses: true } } },
     })
-    const assignedCourseIds = teacher?.teacherProfile?.assignedCourses.map((a) => a.courseId) || []
-    const assignedPeriods = [...new Set(teacher?.teacherProfile?.assignedCourses.map((a) => a.period) || [])]
+    const assignedCourseIds = teacher?.teacherProfile?.assignedCourses?.map((a) => a.courseId) ?? []
+    const assignedPeriods = [...new Set(teacher?.teacherProfile?.assignedCourses?.map((a) => a.period) ?? [])]
 
     if (assignedCourseIds.length === 0) {
       return NextResponse.json({ error: "No tienes cursos asignados" }, { status: 403 })
