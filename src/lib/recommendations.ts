@@ -244,18 +244,20 @@ async function saveRecommendations(studentProfileId: string, recommendations: Re
     where: { studentId: studentProfileId, isRead: false },
   })
 
-  for (const rec of recommendations) {
-    await prisma.recommendation.create({
-      data: {
-        studentId: studentProfileId,
-        type: rec.type,
-        title: rec.title,
-        description: rec.description,
-        priority: rec.priority,
-        isRead: false,
-      },
-    })
-  }
+  await Promise.all(
+    recommendations.map((rec) =>
+      prisma.recommendation.create({
+        data: {
+          studentId: studentProfileId,
+          type: rec.type,
+          title: rec.title,
+          description: rec.description,
+          priority: rec.priority,
+          isRead: false,
+        },
+      })
+    )
+  )
 }
 
 function generateAllRecommendations(
