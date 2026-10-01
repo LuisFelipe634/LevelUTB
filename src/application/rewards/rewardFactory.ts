@@ -1,6 +1,7 @@
 import { PrismaRewardServiceRepository } from "@/infrastructure/rewards/repositories/prismaRewardRepository"
 import type { RewardServiceRepository } from "@/domain/rewards/repositories/rewardRepository"
 import { GetStudentRewardsUseCase, RedeemRewardUseCase, GetTeacherRewardsUseCase, ReviewRewardUseCase } from "@/application/rewards/use-cases/rewardUseCases"
+import { getCurrentPeriod } from "@/lib/period"
 
 let rewardServiceRepository: RewardServiceRepository | null = null
 
@@ -25,7 +26,4 @@ export function getReviewRewardUseCase(): ReviewRewardUseCase {
   return new ReviewRewardUseCase(getRewardServiceRepository())
 }
 
-export function getCurrentPeriod(): string {
-  const now = new Date()
-  return `${now.getFullYear()}-${now.getMonth() < 6 ? 1 : 2}`
-}
+export { getCurrentPeriod }

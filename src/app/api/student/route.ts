@@ -7,10 +7,10 @@ import { requireRole, jsonUnauthorized, jsonForbidden } from "@/lib/session"
 import { getAcademicSource, isExternalAcademicEnabled } from "@/lib/getAcademicSource"
 import { getBadgeSource } from "@/lib/getBadgeSource"
 import type { AcademicEnrollment } from "@/lib/academicSource"
+import { getCurrentPeriod } from "@/lib/period"
 
 function currentPeriod() {
-  const now = new Date()
-  return `${now.getFullYear()}-${now.getMonth() < 6 ? 1 : 2}`
+  return getCurrentPeriod()
 }
 
 type Resolved<T> = { value: T } | { error: NextResponse }
@@ -59,9 +59,6 @@ async function recordTodayAcademicActivity(userId: string): Promise<void> {
   }
 }
 
-// Fuente acadÃ©mica desacoplada: si UNIVERSITY_API_ENABLED=true usa HTTP externa,
-// sino Prisma local. Si la externa no estÃ¡ disponible se corta con 503 en vez de
-// servir datos parciales.
 async function fetchExternalAcademicData(userId: string): Promise<Resolved<AcademicData | null>> {
   if (!isExternalAcademicEnabled()) return { value: null }
 

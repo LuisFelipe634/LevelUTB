@@ -1,9 +1,7 @@
 /**
  * Correo institucional como llave canónica.
- * El email @utb.edu.co ya trae la información del estudiante:
- * - Si el local-part es numérico (ej. 2019123456@utb.edu.co) => studentCode directo.
- * - Si es nominal (ej. juan.perez@utb.edu.co) => se resuelve vía AllowedStudent
- *   (import PROA/Banner) o con studentCode aportado por el usuario y validado.
+ * - Local-part numérico (2019123456@utb.edu.co) => studentCode directo.
+ * - Local-part nominal (juan.perez@utb.edu.co) => se resuelve vía AllowedStudent (PROA/Banner) o studentCode manual.
  */
 
 export const INSTITUTIONAL_DOMAIN = "@utb.edu.co";

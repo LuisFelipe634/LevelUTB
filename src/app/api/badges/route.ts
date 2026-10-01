@@ -12,8 +12,6 @@ type BadgeStats = {
   byCategory: Record<string, { total: number; earned: number }>
 }
 
-// Las stats se calculan sobre la vista que ya se devuelve (id/icon), no sobre
-// BadgeRecord, asi que basta con lo que el agrupado necesita.
 type SummarizableBadge = { category: string; earned: boolean }
 
 function summarizeByCategory(badges: SummarizableBadge[]) {
@@ -37,9 +35,6 @@ function buildStats(badges: SummarizableBadge[]): BadgeStats {
   }
 }
 
-// Resuelve el catalogo con la degradacion acordada: si la fuente institucional
-// esta activa pero no responde, se sirve el catalogo local en vez de un 503 o un
-// catalogo vacio. La UI recibe "degraded" para poder avisarlo.
 async function loadCatalog(studentCode: string): Promise<BadgeCatalog & { degraded: boolean }> {
   const source = getBadgeSource()
 

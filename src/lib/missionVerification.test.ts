@@ -5,10 +5,10 @@ import {
   buildApprovedCredits,
   cappedPercent,
   failed,
-  getCurrentPeriod,
   passed,
   parseInitialAverage,
 } from "./missionVerification"
+import { getCurrentPeriod } from "./period"
 
 test("el periodo es 1 de enero a junio y 2 de julio a diciembre", () => {
   assert.equal(getCurrentPeriod(new Date(2026, 0, 15)), "2026-1")

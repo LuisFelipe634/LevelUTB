@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
-import { getCreditLimit, getCurrentSemester } from "@/lib/academic"
+import { getCurrentSemester, getCreditLimit } from "@/lib/academic"
 import { getAcademicSource } from "@/lib/getAcademicSource"
+import { getCurrentPeriod } from "@/lib/period"
 
 function currentPeriod() {
-  const now = new Date()
-  return `${now.getFullYear()}-${now.getMonth() < 6 ? 1 : 2}`
+  return getCurrentPeriod()
 }
 
 export async function GET() {

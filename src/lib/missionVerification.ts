@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
 import { getAverageGrade } from "@/lib/academic"
 import { computeConsecutiveAccessStreak, countUniqueCompletedMissions } from "@/lib/missionRules"
+import { getCurrentPeriod } from "@/lib/period"
 
 export type VerificationResult = {
   passed: boolean
@@ -10,10 +11,6 @@ export type VerificationResult = {
 }
 
 const CREDITS_PER_SEMESTER = 12
-
-export function getCurrentPeriod(date = new Date()): string {
-  return `${date.getFullYear()}-${date.getMonth() < 6 ? 1 : 2}`
-}
 
 type MissionRule = {
   verificationKey: string | null
@@ -51,11 +48,6 @@ export function passed(message: string, progress = 100): VerificationResult {
   return { passed: true, progress, message }
 }
 
-/**
- * Porcentaje de avance acotado a 99: mientras la condición no se cumple nunca
- * se muestra 100, para no inducir a pensar que ya está cumplida. Un total de 0
- * (por ejemplo una meta mal configurada) vale 0 en vez de dividir en cero.
- */
 export function cappedPercent(partial: number, total: number): number {
   if (total > 0) return Math.min(99, Math.round((partial / total) * 100))
   return 0

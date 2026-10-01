@@ -1,9 +1,6 @@
 import type { AcademicSource, AcademicStudentData } from "@/lib/academicSource"
 import { prisma } from "@/lib/prisma"
 
-// Cliente HTTP para utb-external-api (mock) y futura API real universidad
-// Timeout por petición + degradación a null cuando el servicio no responde.
-
 function getBaseUrl(): string {
   return (process.env.UNIVERSITY_API_URL || "http://localhost:3001").replace(/\/$/, "")
 }

@@ -1,5 +1,4 @@
 // Interface para fuente académica desacoplada (Prisma vs HTTP externa)
-// Permite toggle UNIVERSITY_API_ENABLED sin borrar BD host
 
 export type AcademicEnrollment = {
   courseId: string

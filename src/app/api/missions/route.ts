@@ -47,7 +47,6 @@ function internalServerError(cause: unknown): NextResponse {
   )
 }
 
-// GET: Obtener misiones del estudiante
 export async function GET() {
   try {
     const session = await requireStudentSession()

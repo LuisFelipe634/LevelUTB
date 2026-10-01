@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma"
 import { getCreditLimit, getCurrentSemester } from "@/lib/academic"
+import { getCurrentPeriod } from "@/lib/period"
 
 type RecommendationItem = {
   type: "CURSO_SUGERIDO" | "ALERTA_ATRASO" | "ELECTIVA_RECOMENDADA" | "MEJORA_PROMEDIO" | "RUTA_ACademica" | "RELLENAR_CREDITOS"
@@ -197,8 +198,7 @@ function addCreditFillRecommendation(
   unlockedCourses: ReturnType<typeof findUnlockedCourses>,
   recommendations: RecommendationItem[]
 ) {
-  const now = new Date()
-  const period = `${now.getFullYear()}-${now.getMonth() < 6 ? 1 : 2}`
+  const period = getCurrentPeriod()
   const currentSemester = getCurrentSemester(profile.enrollments, profile.currentSemester, period)
   const creditLimit = getCreditLimit(profile.averageGrade)
   let selectedCredits = 0
@@ -284,12 +284,8 @@ function generateAllRecommendations(
 }
 
 /**
- * Generates smart recommendations for a student based on:
- * - Which prerequisites they've completed (unlocked courses)
- * - Failed courses they need to retake
- * - Bottleneck courses that unlock many others
- * - Low GPA warnings
- * - Remaining credit slots to maximize semester load
+ * Generates recommendations based on: prerequisites completed, failed courses,
+ * bottleneck courses, low GPA, and remaining credit slots.
  */
 export async function generateRecommendations(studentProfileId: string): Promise<void> {
   const { profile, allCourses } = await fetchStudentData(studentProfileId)

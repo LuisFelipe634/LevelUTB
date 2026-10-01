@@ -1,4 +1,5 @@
 import type { Reward, StudentReward, EnrolledCourse, RewardsStats } from "./types"
+import { getCurrentPeriod } from "@/lib/period"
 
 export function calculateTotalPoints(pointsBySource: Array<{ _sum: { amount: number | null } }>): number {
   return pointsBySource.reduce((acc, p) => acc + (p._sum.amount || 0), 0)
@@ -84,9 +85,7 @@ export function validateTeacherAssignment(
   return { isAssigned: true }
 }
 
-export function getCurrentPeriod(date = new Date()): string {
-  return `${date.getFullYear()}-${date.getMonth() < 6 ? 1 : 2}`
-}
+export { getCurrentPeriod }
 
 export function calculateExpiresAt(days = 30): Date {
   return new Date(Date.now() + days * 24 * 60 * 60 * 1000)

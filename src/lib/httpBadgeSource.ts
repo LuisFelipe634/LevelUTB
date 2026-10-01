@@ -1,13 +1,5 @@
 import type { BadgeCatalog, BadgeRecord, BadgeSource } from "@/lib/badgeSource"
 
-// Cliente HTTP del catalogo de insignias institucional. Apunta a utb-external-api
-// hoy y a la API real de la UTB cuando exista; el contrato de la respuesta es
-// el que define que no haya que tocar el consumidor.
-//
-// A diferencia de httpAcademicSource.ts, un fallo NO devuelve null: lanza
-// EXTERNAL_API_UNAVAILABLE para que la ruta decida degradar a Prisma y no
-// servir un catalogo vacio como si fuera el respuesta real.
-
 const BADGE_CATALOG_TIMEOUT_MS = 5000
 
 export class ExternalApiUnavailableError extends Error {

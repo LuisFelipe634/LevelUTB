@@ -3,10 +3,10 @@ import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
 import { getAverageGrade, getCurrentSemester } from "@/lib/academic"
 import { getBadgeSource } from "@/lib/getBadgeSource"
+import { getCurrentPeriod } from "@/lib/period"
 
 function currentPeriod() {
-  const now = new Date()
-  return `${now.getFullYear()}-${now.getMonth() < 6 ? 1 : 2}`
+  return getCurrentPeriod()
 }
 
 export async function GET() {
