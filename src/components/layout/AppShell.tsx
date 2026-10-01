@@ -7,7 +7,7 @@ import { Header } from "@/components/layout/Header"
 
 const publicRoutes = ["/login", "/registro"]
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const pathname = usePathname()
   const isPublicRoute = publicRoutes.some(
