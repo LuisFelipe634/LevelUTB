@@ -1,13 +1,12 @@
 import "dotenv/config";
 import Fastify from "fastify";
 import cors from "@fastify/cors";
-import { readFileSync } from "fs";
-import { join, dirname } from "path";
-import { fileURLToPath } from "url";
+import { readFileSync, existsSync } from "node:fs";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { FastifyRequest, FastifyReply } from "fastify";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-import { existsSync } from "fs";
 const candidates = [join(__dirname, "fixtures", "seed.json"), join(__dirname, "..", "src", "fixtures", "seed.json"), join(process.cwd(), "src", "fixtures", "seed.json")];
 const fixturesPath = candidates.find((p) => existsSync(p)) ?? join(__dirname, "fixtures", "seed.json");
 const fixturesRaw = readFileSync(fixturesPath, "utf-8");
