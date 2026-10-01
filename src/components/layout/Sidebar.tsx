@@ -27,7 +27,7 @@ const navigation = [
   { name: "Estadísticas", href: "/estadisticas", icon: BarChart3 },
 ]
 
-function SidebarContent({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+function SidebarContent({ isOpen, onClose }: Readonly<{ isOpen: boolean; onClose: () => void }>) {
   const pathname = usePathname()
   const { data: session } = useSession()
   const isTeacher = session?.user?.role === "TEACHER"
@@ -197,7 +197,7 @@ function SidebarContent({ isOpen, onClose }: { isOpen: boolean; onClose: () => v
   )
 }
 
-export function Sidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+export function Sidebar({ isOpen, onClose }: Readonly<{ isOpen: boolean; onClose: () => void }>) {
   return (
     <Suspense fallback={<aside className={`fixed inset-y-0 left-0 z-40 w-64 border-r border-[#e4eaf3] bg-[#fbfcfe] dark:border-gray-700 dark:bg-gray-900 lg:flex ${isOpen ? "flex" : "hidden"}`} aria-hidden />}>
       <SidebarContent isOpen={isOpen} onClose={onClose} />
