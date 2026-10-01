@@ -9,7 +9,10 @@ export async function GET() {
   const session = await requireRole("TEACHER")
 
   if (session.error) {
-    return session.status === 401 ? jsonUnauthorized(session.error) : jsonForbidden(session.error)
+    if (session.status === 401) {
+      return jsonUnauthorized(session.error)
+    }
+    return jsonForbidden(session.error)
   }
 
   const teacherUserId = session.data?.userId
@@ -226,7 +229,10 @@ export async function PATCH(request: Request) {
   const session = await requireRole("TEACHER")
 
   if (session.error) {
-    return session.status === 401 ? jsonUnauthorized(session.error) : jsonForbidden(session.error)
+    if (session.status === 401) {
+      return jsonUnauthorized(session.error)
+    }
+    return jsonForbidden(session.error)
   }
 
   const teacherUserId = session.data?.userId
@@ -274,7 +280,13 @@ export async function PATCH(request: Request) {
         data: {
           userId: studentMission.studentId,
           title: approved ? "Misión verificada" : "Misión devuelta para revisión",
-          message: approved ? `Tu misión «${studentMission.mission.title}» fue aprobada y ganaste ${studentMission.mission.pointsReward} puntos.` : `Tu misión «${studentMission.mission.title}» necesita ajustes.${typeof comment === "string" && comment.trim() ? ` Comentario: ${comment.trim()}` : ""}`,
+          message: (() => {
+            if (approved) {
+              return `Tu misión «${studentMission.mission.title}» fue aprobada y ganaste ${studentMission.mission.pointsReward} puntos.`
+            }
+            const commentText = typeof comment === "string" && comment.trim() ? ` Comentario: ${comment.trim()}` : ""
+            return `Tu misión «${studentMission.mission.title}» necesita ajustes.${commentText}`
+          })(),
           type: approved ? "LOGRO_OBTENIDO" : "WARNING",
           link: "/misiones"
         }
