@@ -46,12 +46,14 @@ export async function requireRole(role: string | string[]) {
 
   const allowed = Array.isArray(role) ? role : [role]
   if (!context.role || !allowed.includes(context.role)) {
-    const label =
-      allowed.includes("STUDENT") && allowed.length === 1
-        ? "estudiantes"
-        : allowed.includes("TEACHER") && allowed.length === 1
-          ? "docentes"
-          : "usuarios autorizados"
+    let label: string
+    if (allowed.includes("STUDENT") && allowed.length === 1) {
+      label = "estudiantes"
+    } else if (allowed.includes("TEACHER") && allowed.length === 1) {
+      label = "docentes"
+    } else {
+      label = "usuarios autorizados"
+    }
     return {
       error: `Acceso exclusivo para ${label}`,
       status: 403,
