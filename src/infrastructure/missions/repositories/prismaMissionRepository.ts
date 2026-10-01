@@ -113,8 +113,8 @@ export class PrismaStudentMissionRepository implements StudentMissionRepository 
 }
 
 export class PrismaMissionServiceRepository implements MissionServiceRepository {
-  private missionRepository: PrismaMissionRepository
-  private studentMissionRepository: PrismaStudentMissionRepository
+  private readonly missionRepository: PrismaMissionRepository
+  private readonly studentMissionRepository: PrismaStudentMissionRepository
 
   constructor() {
     this.missionRepository = new PrismaMissionRepository()
@@ -195,11 +195,10 @@ export class PrismaMissionServiceRepository implements MissionServiceRepository 
     }
 
     const status = mission.autoVerify ? "COMPLETADA" : "EN_REVISION"
-    const finalEvidence = mission.autoVerify
-      ? verificationResult?.message
-        ? `Cumplimiento registrado automáticamente — ${verificationResult.message}`
-        : "Cumplimiento registrado automáticamente"
-      : evidence
+    const autoVerifyEvidence = verificationResult?.message
+      ? `Cumplimiento registrado automáticamente — ${verificationResult.message}`
+      : "Cumplimiento registrado automáticamente"
+    const finalEvidence = mission.autoVerify ? autoVerifyEvidence : evidence
 
     return this.studentMissionRepository.update(existingMission.id, {
       status: status as "COMPLETADA" | "EN_REVISION",
