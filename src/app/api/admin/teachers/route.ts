@@ -2,8 +2,7 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { normalizeInstitutionalEmail, validatePassword } from "@/lib/institutionalEmail";
-import { requireAdmin } from "@/lib/session";
-import { jsonForbidden, jsonUnauthorized } from "@/lib/session";
+import { requireAdmin, jsonForbidden, jsonUnauthorized } from "@/lib/session";
 
 /**
  * Alta de docentes SOLO por ADMIN.
