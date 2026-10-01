@@ -66,35 +66,37 @@ async function upsertBadge(badge: typeof badgeFixtures.badges[0]): Promise<strin
 async function syncStudentBadges(profile: { userId: string; studentCode: string }, badgeIdByCode: Map<string, string>) {
   const studentBadges = badgeFixtures.studentBadges[profile.studentCode] ?? []
 
-  for (const earnedBadge of studentBadges) {
-    const badgeId = badgeIdByCode.get(earnedBadge.code)
-    if (!badgeId) {
-      console.warn(`  ⚠️  Badge ${earnedBadge.code} no encontrado en catálogo local`)
-      continue
-    }
+  await Promise.all(
+    studentBadges.map(async (earnedBadge) => {
+      const badgeId = badgeIdByCode.get(earnedBadge.code)
+      if (!badgeId) {
+        console.warn(`  ⚠️  Badge ${earnedBadge.code} no encontrado en catálogo local`)
+        return
+      }
 
-    const earnedAt = parseEarnedAt(earnedBadge.earnedAt)
+      const earnedAt = parseEarnedAt(earnedBadge.earnedAt)
 
-    await prisma.studentBadge.upsert({
-      where: {
-        studentId_badgeId: {
+      await prisma.studentBadge.upsert({
+        where: {
+          studentId_badgeId: {
+            studentId: profile.userId,
+            badgeId,
+          },
+        },
+        update: {
+          earnedAt,
+          evidence: earnedBadge.evidence,
+        },
+        create: {
           studentId: profile.userId,
           badgeId,
+          earnedAt,
+          evidence: earnedBadge.evidence,
         },
-      },
-      update: {
-        earnedAt,
-        evidence: earnedBadge.evidence,
-      },
-      create: {
-        studentId: profile.userId,
-        badgeId,
-        earnedAt,
-        evidence: earnedBadge.evidence,
-      },
+      })
+      console.log(`  ✅ ${profile.studentCode} - ${earnedBadge.code}`)
     })
-    console.log(`  ✅ ${profile.studentCode} - ${earnedBadge.code}`)
-  }
+  )
 }
 
 async function syncBadges() {
@@ -103,11 +105,15 @@ async function syncBadges() {
 
   const badgeIdByCode = new Map<string, string>()
 
-  for (const badge of badgeFixtures.badges) {
-    const badgeId = await upsertBadge(badge)
-    badgeIdByCode.set(badge.code, badgeId)
-    console.log(`  ✅ ${badge.code}: ${badge.name}`)
-  }
+  // Upsert all badges in parallel
+  const badgeResults = await Promise.all(
+    badgeFixtures.badges.map(async (badge) => {
+      const badgeId = await upsertBadge(badge)
+      console.log(`  ✅ ${badge.code}: ${badge.name}`)
+      return { code: badge.code, id: badgeId }
+    })
+  )
+  badgeResults.forEach(({ code, id }) => badgeIdByCode.set(code, id))
 
   const profiles = await prisma.studentProfile.findMany({
     select: { id: true, userId: true, studentCode: true },
@@ -115,13 +121,16 @@ async function syncBadges() {
 
   console.log(`👥 Sincronizando insignias para ${profiles.length} estudiantes...`)
 
-  for (const profile of profiles) {
-    try {
-      await syncStudentBadges(profile, badgeIdByCode)
-    } catch (error) {
-      console.error(`  ❌ Error sincronizando ${profile.studentCode}:`, error instanceof Error ? error.message : error)
-    }
-  }
+  // Sync all students in parallel
+  await Promise.all(
+    profiles.map(async (profile) => {
+      try {
+        await syncStudentBadges(profile, badgeIdByCode)
+      } catch (error) {
+        console.error(`  ❌ Error sincronizando ${profile.studentCode}:`, error instanceof Error ? error.message : error)
+      }
+    })
+  )
 
   console.log('🎉 Sincronización completada')
 }
