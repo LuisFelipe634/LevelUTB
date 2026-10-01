@@ -100,7 +100,7 @@ app.get("/academic/badges", () => {
 // bloqueadas.
 app.get("/academic/students/:studentCode/badges", (request: FastifyRequest<{ Params: { studentCode: string } }>, reply: FastifyReply) => {
   const { studentCode } = request.params;
-  const student = fixtures.students.find((s) => s.studentCode === studentCode);
+  const student = fixtures.students.some((s) => s.studentCode === studentCode);
   if (!student) return reply.code(404).send({ error: "Estudiante no encontrado" });
 
   const earned = badgeFixtures.studentBadges[studentCode] ?? [];

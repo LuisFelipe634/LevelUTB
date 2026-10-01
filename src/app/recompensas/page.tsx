@@ -414,7 +414,7 @@ export default function Recompensas() {
   }, [])
 
   const handleRedeem = async (rewardId: string) => {
-    const reward = rewards.find(r => r.id === rewardId)
+    const reward = rewards.some(r => r.id === rewardId)
     if (!reward) return
 
     // Validación cliente: solo cursos matriculados oficialmente en el periodo vigente
