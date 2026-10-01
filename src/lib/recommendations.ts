@@ -130,8 +130,9 @@ function addFailedCourseRecommendations(failedCourseIds: Set<string>, allCourses
     if (!course) continue
 
     const prereqCount = course.requiredBy.length
+    const pluralSuffix = prereqCount > 1 ? "s" : ""
     const prereqText = prereqCount > 0
-      ? `, ya que es prerrequisito de ${prereqCount} curso${prereqCount > 1 ? "s" : ""}`
+      ? `, ya que es prerrequisito de ${prereqCount} curso${pluralSuffix}`
       : ""
 
     recommendations.push({
