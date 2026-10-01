@@ -149,7 +149,7 @@ Motor `src/lib/recommendations.ts`: prerrequisitos que más desbloquean (alta), 
 ## Estructura del Proyecto
 
 ```text
-utb-gamificacion/
+LevelUTB/
   .env / .env.example        # DATABASE_URL, NEXTAUTH_SECRET/URL (ver Instalación)
   setup.sh                   # Instalación automática (Node via nvm, Postgres, .env, db:push, seed)
   next.config.ts / tsconfig.json / eslint.config.mjs / postcss.config.mjs / prisma.config.ts
@@ -194,7 +194,7 @@ Estructura detallada: `docs/arc42.md` (§5 vista de bloques, §7 despliegue).
 
 ```powershell
 git clone <url-del-repositorio>
-cd utb-gamificacion
+cd LevelUTB
 Copy-Item .env.example .env       # PowerShell; en Bash usa: cp .env.example .env
 docker compose up --build -d
 ```
@@ -230,7 +230,7 @@ El último comando elimina el volumen de PostgreSQL y todos sus datos.
 | Servicio | Puerto | Descripción |
 |---|---|---|
 | `app` | 3000 | Next.js — http://localhost:3000 |
-| `db` | 5432 | PostgreSQL 16 (volumen `utb-gamificacion_pgdata`) |
+| `db` | 5432 | PostgreSQL 16 (volumen `levelutb_pgdata`) |
 | `external-academic-api` | 3001 | API académica e insignias simuladas |
 
 Comandos útiles:
@@ -250,7 +250,7 @@ genera `.env` si no existe, crea la base de datos, ejecuta `db:generate`,
 
 ```bash
 git clone <url-del-repositorio>
-cd utb-gamificacion
+cd LevelUTB
 chmod +x setup.sh
 ./setup.sh
 npm run dev
@@ -301,7 +301,7 @@ Detecta Debian/Fedora/Arch/macOS, instala Node >=18 vía nvm, crea usuario/DB, g
 
 ```bash
 git clone <url-del-repositorio>
-cd utb-gamificacion
+cd LevelUTB
 npm install
 ```
 
@@ -312,7 +312,7 @@ cp .env.example .env     # en Windows: copy .env.example .env
 ```
 
 ```env
-DATABASE_URL="postgresql://postgres:postgres@localhost:5432/utb_gamificacion?schema=public"
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/levelutb?schema=public"
 NEXTAUTH_SECRET="cambia-este-secreto-por-uno-seguro"
 NEXTAUTH_URL="http://localhost:3000"
 UNIVERSITY_API_URL="http://localhost:3001"

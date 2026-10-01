@@ -68,7 +68,7 @@ export default function LoginPage() {
           <div className="mx-auto mb-4 flex aspect-square h-12 w-12 items-center justify-center rounded-xl bg-linear-to-br from-blue-500 to-purple-600">
             <GraduationCap className="h-6 w-6 text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">UTB Gamificación</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">LevelUTB</h1>
           <p className="text-gray-600 dark:text-gray-400 mt-1">
             Experiencia de avance académico
           </p>

@@ -3,7 +3,7 @@ services:
     image: postgres:16-alpine
     env_file: .env
     environment:
-      POSTGRES_DB: "${POSTGRES_DB:-utb_gamificacion}"
+      POSTGRES_DB: "${POSTGRES_DB:-levelutb}"
       POSTGRES_USER: "${POSTGRES_USER:-postgres}"
     # POSTGRES_PASSWORD no se declara aca a proposito: llega por env_file (.env)
     # y por interpolacion, asi ninguna credencial queda literal en el repo.
@@ -40,7 +40,7 @@ services:
         condition: service_started
     env_file: .env
     environment:
-      DATABASE_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-utb_gamificacion}?schema=public"
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-levelutb}?schema=public"
       UNIVERSITY_API_URL: "http://external-academic-api:3001"
       UNIVERSITY_API_ENABLED: "true"
       NEXTAUTH_URL: "http://localhost:3000"

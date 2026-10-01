@@ -20,7 +20,7 @@ export async function sendVerificationCode(email: string, code: string): Promise
   const smtpHost = process.env.SMTP_HOST;
 
   if (resendKey) {
-    const from = process.env.EMAIL_FROM || "UTB Gamificación <no-reply@utb.edu.co>";
+    const from = process.env.EMAIL_FROM || "LevelUTB <no-reply@utb.edu.co>";
     try {
       const res = await fetch("https://api.resend.com/emails", {
         method: "POST",

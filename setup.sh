@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =======================================================
-# setup.sh - Configura UTB Gamificacion en un dispositivo nuevo
+# setup.sh - Configura LevelUTB en un dispositivo nuevo
 #
 # Uso:
 #   ./setup.sh           # Instala lo necesario y deja todo listo
@@ -182,7 +182,7 @@ psql_admin() {
 create_db_if_missing() {
   local url creds hostport host port db user pass
   local host_args=()
-  url="${DATABASE_URL:-postgresql://postgres:postgres@localhost:5432/utb_gamificacion?schema=public}"
+  url="${DATABASE_URL:-postgresql://postgres:postgres@localhost:5432/levelutb?schema=public}"
 
   # Parsea la URL sin depender de python (formato: postgresql://user:pass@host:port/db?schema=public)
   creds="${url#postgresql://}"          # user:pass@host:port/db?schema=public
@@ -221,7 +221,7 @@ create_db_if_missing() {
 # =======================================================
 main() {
   info "$SEP"
-  info "UTB Gamificacion - Setup"
+  info "LevelUTB - Setup"
   info "$SEP"
 
   # Cargar primero la configuracion para que la creacion de PostgreSQL use

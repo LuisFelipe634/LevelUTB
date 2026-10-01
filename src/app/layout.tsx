@@ -8,7 +8,7 @@ import { AppShell } from "@/components/layout/AppShell"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "UTB Gamificación - Avance Académico",
+  title: "LevelUTB - Avance Académico",
   description: "Experiencia gamificada para conocer estado de avance académico durante la carrera"
 }
 

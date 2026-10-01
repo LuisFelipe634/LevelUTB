@@ -1,5 +1,5 @@
 // ============================================
-// UTB Gamificación - Schema de Base de Datos
+// LevelUTB - Schema de Base de Datos
 // ============================================
 
 generator client {

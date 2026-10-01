@@ -1,4 +1,4 @@
-# UTB Gamificación — Documentación de Arquitectura (arc42)
+# LevelUTB — Documentación de Arquitectura (arc42)
 
 > Fuente de verdad del código: `README.md`, `src/app/README.md`, `src/app/api/README.md`.
 > Stack: Next.js 16.3.2 (App Router) · React 19 · Tailwind CSS 4 · PostgreSQL + Prisma 7.9.1 · NextAuth 5 beta.
@@ -56,7 +56,7 @@ Plataforma web gamificada para que el estudiante de la Universidad Tecnológica 
 
 ```mermaid
 flowchart LR
-    E[Estudiante\nnavegador] --> APP[UTB Gamificación\nNext.js]
+    E[Estudiante\nnavegador] --> APP[LevelUTB\nNext.js]
     D[Docente\nnavegador] --> APP
     A[Admin\nnavegador] --> APP
     APP --> PG[(PostgreSQL\n24 modelos)]
@@ -253,7 +253,7 @@ flowchart LR
 | Elemento | Detalle |
 |---|---|
 | Build | `docker compose up --build -d`. Imagen `node:20-alpine`; no requiere Node ni PostgreSQL en el host. El `.env` se inyecta por `env_file` en runtime, nunca horneado en la imagen (`.dockerignore`) |
-| Servicios | `app` :3000 · `db` PostgreSQL 16 :5432 (volumen `utb-gamificacion_pgdata`, sobrevive a `down`) · `external-academic-api` :3001 |
+| Servicios | `app` :3000 · `db` PostgreSQL 16 :5432 (volumen `levelutb_pgdata`, sobrevive a `down`) · `external-academic-api` :3001 |
 | Orden de arranque | `app` espera `db` healthy. Dentro: `prisma db push` → `db:seed-if-empty` → `npm run dev` |
 | Seed en arranque | `prisma/seed-if-empty.ts` siembra **solo si `users` está vacía**; `seed.ts` es destructivo (22 `deleteMany()`). `SEED_IF_EMPTY=false` lo desactiva. Así un equipo nuevo levanta con datos y nadie pierde los suyos en un `up` posterior |
 | Config | `.env` (plantilla `.env.example`): `DATABASE_URL`, `NEXTAUTH_SECRET/URL`, `RESEND_API_KEY` o `SMTP_HOST/PORT/USER/PASS`, `EMAIL_FROM`, `ADMIN_EMAIL`, `UNIVERSITY_API_URL/KEY/ENABLED` |
