@@ -23,7 +23,7 @@ export type BadgeRecord = {
   name: string
   description: string
   iconUrl: string
-  category: BadgeCategoryName | string
+  category: string
   requiredLevel: number | null
   pointsRequired: number | null
   earned: boolean
