@@ -1,4 +1,4 @@
-# UTB Gamificación
+# LevelUTB
 
 Plataforma gamificada para el seguimiento del avance académico de estudiantes de la Universidad Tecnológica de Bolívar.
 
