@@ -214,25 +214,19 @@ export default function MallaCurricular() {
   }
 
   const displayedCurriculum = curriculum || mockCurriculum
-  const displayedTotalCredits = displayedCurriculum.reduce(
-    (acc, semester) => acc + semester.courses.reduce((total, course) => total + course.credits, 0),
-    0
-  )
-  const displayedCompletedCredits = displayedCurriculum
-    .flatMap((semester) => semester.courses)
+  const displayedCourses = displayedCurriculum.flatMap((semester) => semester.courses)
+  const displayedTotalCredits = displayedCourses.reduce((total, course) => total + course.credits, 0)
+  const displayedCompletedCredits = displayedCourses
     .filter((course) => course.status === "completed")
     .reduce((acc, course) => acc + course.credits, 0)
-  const displayedInProgressCredits = displayedCurriculum
-    .flatMap((semester) => semester.courses)
+  const displayedInProgressCredits = displayedCourses
     .filter((course) => course.status === "in_progress")
     .reduce((acc, course) => acc + course.credits, 0)
   const approvedPercentage = displayedTotalCredits ? Math.round((displayedCompletedCredits / displayedTotalCredits) * 100) : 0
   const inProgressPercentage = displayedTotalCredits ? Math.round((displayedInProgressCredits / displayedTotalCredits) * 100) : 0
 
   // Materias matriculadas este periodo — solo lectura (sin botón de agregar)
-  const enrolledCourses = displayedCurriculum
-    .flatMap((s) => s.courses)
-    .filter((c) => c.status === "in_progress")
+  const enrolledCourses = displayedCourses.filter((course) => course.status === "in_progress")
   const enrolledCredits = enrolledCourses.reduce((acc, c) => acc + c.credits, 0)
 
   // Si la carga falló y no hay datos, no mostrar la malla de ejemplo como si fuera real

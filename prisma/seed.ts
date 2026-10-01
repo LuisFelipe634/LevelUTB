@@ -46,6 +46,17 @@ type BadgeCategory = 'PROGRESO' | 'COMPETENCIA' | 'HABITO' | 'IMPACTO_SOCIAL' | 
 type CourseSeed = { code: string; name: string; credits: number; type: CourseType; prereq: string[] }
 type SemesterSeed = { number: number; courses: CourseSeed[] }
 type LevelSeed = { number: number; name: string; minPoints: number }
+type StudentSeed = {
+  email: string
+  name: string
+  studentCode: string
+  currentSemester: number
+  admissionYear: number
+  totalCredits: number
+  averageGrade: number
+  level: number
+  logMessage: string
+}
 type RewardSeed = {
   name: string
   description: string
@@ -425,13 +436,43 @@ async function main() {
   const passwordHash = await bcrypt.hash('demo123', 10)
   const secondPasswordHash = await bcrypt.hash('demo1234', 10)
 
-  const juan = await createDemoStudent(program.id, passwordHash)
+  const juan = await createStudent(program.id, passwordHash, {
+    email: 'demo@utb.edu.co',
+    name: 'Juan Pérez',
+    studentCode: '2019123456',
+    currentSemester: DEMO_CURRENT_SEMESTER,
+    admissionYear: 2019,
+    totalCredits: 95,
+    averageGrade: 4.2,
+    level: 3,
+    logMessage: '✅ Usuario demo creado:',
+  })
   await seedDemoHistory(juan.profileId, program.id)
 
-  const sara = await createSecondStudent(program.id, secondPasswordHash)
+  const sara = await createStudent(program.id, secondPasswordHash, {
+    email: 'demo2@utb.edu.co',
+    name: 'Sara Peña',
+    studentCode: '2020123456',
+    currentSemester: SARA_CURRENT_SEMESTER,
+    admissionYear: 2019,
+    totalCredits: 113,
+    averageGrade: 4.0,
+    level: 5,
+    logMessage: '✅ Segundo estudiante creado:',
+  })
   await seedSecondStudentHistory(sara.profileId, program.id)
 
-  const angela = await createThirdStudent(program.id, secondPasswordHash)
+  const angela = await createStudent(program.id, secondPasswordHash, {
+    email: 'juanito@utb.edu.co',
+    name: 'Angela Lemus',
+    studentCode: '2021123456',
+    currentSemester: ANGELA_CURRENT_SEMESTER,
+    admissionYear: 2021,
+    totalCredits: 60,
+    averageGrade: 4.7,
+    level: 4,
+    logMessage: '✅ Estudiante Angela Lemus creada:',
+  })
   await seedThirdStudentHistory(angela.profileId, program.id)
   await approveCurrentCredits(juan.profileId)
 
@@ -449,12 +490,22 @@ async function main() {
 
   const currentCourses = await findCurrentCourses()
 
-  const teacher = await createTeacherUser(passwordHash)
+  const teacher = await createTeacherUser(passwordHash, {
+    email: 'docente@utb.edu.co',
+    name: 'María González',
+    profession: 'Ingeniera de Sistemas',
+    logMessage: '✅ Usuario docente creado:',
+  })
   await assignTeacherCourses(teacher.profileId, currentCourses)
 
   // Segundo docente con una sola materia, para probar que un docente que NO tiene
   // asignada la materia del canje no lo ve en su lista de pendientes.
-  const secondTeacher = await createSecondTeacherUser(passwordHash)
+  const secondTeacher = await createTeacherUser(passwordHash, {
+    email: 'docente2@utb.edu.co',
+    name: 'Carlos Ramírez',
+    profession: 'Ingeniero de Sistemas',
+    logMessage: '✅ Segundo docente creado:',
+  })
   await assignTeacherCourses(
     secondTeacher.profileId,
     currentCourses.filter((course) => course.code === SECOND_TEACHER_COURSE_CODE)
@@ -590,29 +641,29 @@ async function seedBadges() {
   console.log('✅ Insignias obtenidas por los estudiantes demo')
 }
 
-async function createDemoStudent(programId: string, passwordHash: string) {
+async function createStudent(programId: string, passwordHash: string, student: StudentSeed) {
   const user = await prisma.user.create({
     data: {
-      email: 'demo@utb.edu.co',
-      name: 'Juan Pérez',
+      email: student.email,
+      name: student.name,
       passwordHash,
       role: 'STUDENT',
       studentProfile: {
         create: {
-          studentCode: '2019123456',
+          studentCode: student.studentCode,
           programId,
-          currentSemester: DEMO_CURRENT_SEMESTER,
-          admissionYear: 2019,
-          totalCredits: 95,
-          averageGrade: 4.2,
-          level: 3,
+          currentSemester: student.currentSemester,
+          admissionYear: student.admissionYear,
+          totalCredits: student.totalCredits,
+          averageGrade: student.averageGrade,
+          level: student.level,
         },
       },
     },
     include: { studentProfile: true },
   })
 
-  console.log('✅ Usuario demo creado:', user.email)
+  console.log(student.logMessage, user.email)
   return { email: user.email, profileId: requireProfile(user.studentProfile, user.email).id }
 }
 
@@ -647,32 +698,6 @@ async function seedDemoHistory(studentId: string, programId: string) {
   console.log('✅ Inscripciones del usuario demo creadas')
 }
 
-async function createSecondStudent(programId: string, passwordHash: string) {
-  const user = await prisma.user.create({
-    data: {
-      email: 'demo2@utb.edu.co',
-      name: 'Sara Peña',
-      passwordHash,
-      role: 'STUDENT',
-      studentProfile: {
-        create: {
-          studentCode: '2020123456',
-          programId,
-          currentSemester: SARA_CURRENT_SEMESTER,
-          admissionYear: 2019,
-          totalCredits: 113,
-          averageGrade: 4.0,
-          level: 5,
-        },
-      },
-    },
-    include: { studentProfile: true },
-  })
-
-  console.log('✅ Segundo estudiante creado:', user.email)
-  return { email: user.email, profileId: requireProfile(user.studentProfile, user.email).id }
-}
-
 async function seedSecondStudentHistory(studentId: string, programId: string) {
   const courses = await prisma.course.findMany({
     where: { programId },
@@ -700,44 +725,21 @@ async function seedSecondStudentHistory(studentId: string, programId: string) {
   console.log('✅ Sara Peña configurada: semestres 1-7 aprobados y semestre 8 en curso')
 }
 
-async function createThirdStudent(programId: string, passwordHash: string) {
+async function createTeacherUser(
+  passwordHash: string,
+  teacher: { email: string; name: string; profession: string; logMessage: string },
+) {
   const user = await prisma.user.create({
     data: {
-      email: 'juanito@utb.edu.co',
-      name: 'Angela Lemus',
-      passwordHash,
-      role: 'STUDENT',
-      studentProfile: {
-        create: {
-          studentCode: '2021123456',
-          programId,
-          currentSemester: ANGELA_CURRENT_SEMESTER,
-          admissionYear: 2021,
-          totalCredits: 60,
-          averageGrade: 4.7,
-          level: 4,
-        },
-      },
-    },
-    include: { studentProfile: true },
-  })
-
-  console.log('✅ Estudiante Angela Lemus creada:', user.email)
-  return { email: user.email, profileId: requireProfile(user.studentProfile, user.email).id }
-}
-
-async function createTeacherUser(passwordHash: string) {
-  const user = await prisma.user.create({
-    data: {
-      email: 'docente@utb.edu.co',
-      name: 'María González',
+      email: teacher.email,
+      name: teacher.name,
       passwordHash,
       role: 'TEACHER',
       teacherProfile: {
         create: {
           department: 'Ingeniería de Sistemas',
           faculty: 'Facultad de Ingeniería',
-          profession: 'Ingeniera de Sistemas',
+          profession: teacher.profession,
           title: 'Docente acompañante',
           isActive: true,
         },
@@ -746,31 +748,7 @@ async function createTeacherUser(passwordHash: string) {
     include: { teacherProfile: true },
   })
 
-  console.log('✅ Usuario docente creado:', user.email)
-  return { email: user.email, profileId: requireProfile(user.teacherProfile, user.email).id }
-}
-
-async function createSecondTeacherUser(passwordHash: string) {
-  const user = await prisma.user.create({
-    data: {
-      email: 'docente2@utb.edu.co',
-      name: 'Carlos Ramírez',
-      passwordHash,
-      role: 'TEACHER',
-      teacherProfile: {
-        create: {
-          department: 'Ingeniería de Sistemas',
-          faculty: 'Facultad de Ingeniería',
-          profession: 'Ingeniero de Sistemas',
-          title: 'Docente acompañante',
-          isActive: true,
-        },
-      },
-    },
-    include: { teacherProfile: true },
-  })
-
-  console.log('✅ Segundo docente creado:', user.email)
+  console.log(teacher.logMessage, user.email)
   return { email: user.email, profileId: requireProfile(user.teacherProfile, user.email).id }
 }
 

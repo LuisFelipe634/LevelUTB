@@ -31,6 +31,13 @@ function devError(error: string, cause: unknown): NextResponse | null {
   )
 }
 
+function internalServerError(cause: unknown): NextResponse {
+  return (
+    devError("Error interno del servidor", cause) ??
+    NextResponse.json({ error: "Error interno del servidor" }, { status: 500 })
+  )
+}
+
 export async function GET() {
   try {
     const session = await requireStudentSession()
@@ -85,12 +92,7 @@ export async function GET() {
     })
   } catch (error) {
     console.error("Error fetching rewards:", error)
-    const response = devError("Error interno del servidor", error)
-    if (response) return response
-    return NextResponse.json(
-      { error: "Error interno del servidor" },
-      { status: 500 }
-    )
+    return internalServerError(error)
   }
 }
 
@@ -134,11 +136,6 @@ export async function POST(request: Request) {
       }
     }
 
-    const response = devError("Error interno del servidor", error)
-    if (response) return response
-    return NextResponse.json(
-      { error: "Error interno del servidor" },
-      { status: 500 }
-    )
+    return internalServerError(error)
   }
 }
