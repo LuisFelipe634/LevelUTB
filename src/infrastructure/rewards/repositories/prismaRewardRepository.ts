@@ -211,7 +211,7 @@ export class PrismaRewardServiceRepository implements RewardServiceRepository {
 
   async redeemReward(studentId: string, input: { rewardId: string; courseId: string; evidence?: string }): Promise<StudentReward> {
     const reward = await this.rewardRepository.findById(input.rewardId)
-    if (!reward || !reward.isActive) {
+    if (!reward?.isActive) {
       throw new Error("REWARD_NOT_FOUND")
     }
 
@@ -409,7 +409,7 @@ export class PrismaRewardServiceRepository implements RewardServiceRepository {
 
   async reviewReward(teacherUserId: string, input: { studentRewardId: string; courseId?: string; decision: "approve" | "reject"; comment?: string }): Promise<{ success: boolean; status: "APROBADO" | "RECHAZADO" }> {
     const studentReward = await this.studentRewardRepository.findById(input.studentRewardId)
-    if (!studentReward || studentReward.status !== "SOLICITADO") {
+    if (studentReward?.status !== "SOLICITADO") {
       throw new Error("INVALID_REQUEST")
     }
 
