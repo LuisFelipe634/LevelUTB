@@ -11,7 +11,7 @@ function getApiKey(): string | undefined {
   return process.env.UNIVERSITY_API_KEY || process.env.API_KEY || undefined
 }
 
-async function fetchJson(path: string, timeoutMs = 5000): Promise<unknown | null> {
+async function fetchJson(path: string, timeoutMs = 5000): Promise<unknown> {
   const base = getBaseUrl()
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
