@@ -84,6 +84,17 @@ interface RecommendationData {
   isRead: boolean
 }
 
+function getRecommendationClassName(priority: number): string {
+  switch (priority) {
+    case 1:
+      return "bg-orange-50 dark:bg-orange-900/15 border-orange-200 dark:border-orange-800"
+    case 2:
+      return "bg-white dark:bg-gray-800/60 border-gray-200 dark:border-gray-700"
+    default:
+      return "bg-green-50 dark:bg-green-900/15 border-green-200 dark:border-green-800"
+  }
+}
+
 export default function Dashboard() {
   const [data, setData] = useState<StudentData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -151,17 +162,6 @@ export default function Dashboard() {
   }
 
   const loadStudentData = useEffectEvent(fetchStudentData)
-
-  function getRecommendationClassName(priority: number): string {
-    switch (priority) {
-      case 1:
-        return "bg-orange-50 dark:bg-orange-900/15 border-orange-200 dark:border-orange-800"
-      case 2:
-        return "bg-white dark:bg-gray-800/60 border-gray-200 dark:border-gray-700"
-      default:
-        return "bg-green-50 dark:bg-green-900/15 border-green-200 dark:border-green-800"
-    }
-  }
 
   useEffect(() => {
     // The event loads external student data and updates the dashboard state.
