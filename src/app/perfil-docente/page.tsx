@@ -21,7 +21,7 @@ export default function TeacherProfilePage() {
 
   useEffect(() => {
     fetch("/api/teacher").then(async (response) => {
-      if (!response.ok) throw new Error()
+      if (!response.ok) throw new Error("Failed to fetch teacher profile")
       setData(await response.json())
     }).catch(() => setError("No se pudo cargar el perfil docente"))
   }, [])

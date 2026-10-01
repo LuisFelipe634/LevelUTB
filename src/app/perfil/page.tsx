@@ -44,7 +44,7 @@ export default function ProfilePage() {
   useEffect(() => {
     fetch("/api/student")
       .then(async (response) => {
-        if (!response.ok) throw new Error();
+        if (!response.ok) throw new Error("Failed to fetch student profile");
         setData(await response.json());
       })
       .catch(() => setError("No se pudo cargar el perfil"));
