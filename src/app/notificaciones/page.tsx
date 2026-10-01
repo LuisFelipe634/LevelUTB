@@ -36,6 +36,16 @@ function getUnreadLabel(count: number): string {
   return `Tienes ${count} notificación${count > 1 ? "es" : ""} sin leer`
 }
 
+function getNotificationBorderClass(isUrgentRoute: boolean, isRead: boolean): string {
+  if (isUrgentRoute && !isRead) return "border-red-300 dark:border-red-700 bg-red-50/40 dark:bg-red-900/10 shadow-sm"
+  if (isRead) return "border-gray-200 dark:border-gray-700"
+  return "border-blue-300 dark:border-blue-600 shadow-sm"
+}
+
+function getNotificationTitleClass(isRead: boolean): string {
+  return isRead ? "text-gray-700 dark:text-gray-300" : "text-gray-900 dark:text-white"
+}
+
 export async function fetchNotificationsData(
   setNotifications: React.Dispatch<React.SetStateAction<Notification[]>>,
   setLoading: React.Dispatch<React.SetStateAction<boolean>>
@@ -190,13 +200,7 @@ export default function Notificaciones() {
           return (
             <div
               key={notification.id}
-              className={`bg-white dark:bg-gray-800 rounded-xl shadow-xs border p-4 transition-all ${
-                isUrgentRoute && !notification.isRead
-                  ? "border-red-300 dark:border-red-700 bg-red-50/40 dark:bg-red-900/10 shadow-sm"
-                  : notification.isRead
-                  ? "border-gray-200 dark:border-gray-700"
-                  : "border-blue-300 dark:border-blue-600 shadow-sm"
-              }`}
+              className={`bg-white dark:bg-gray-800 rounded-xl shadow-xs border p-4 transition-all ${getNotificationBorderClass(isUrgentRoute, notification.isRead)}`}
             >
               <div className="flex items-start gap-4">
                 {/* Icon */}
@@ -208,11 +212,7 @@ export default function Notificaciones() {
                 <div className="flex-1">
                   <div className="flex items-start justify-between">
                     <div>
-                      <h3 className={`font-medium ${
-                        notification.isRead
-                          ? "text-gray-700 dark:text-gray-300"
-                          : "text-gray-900 dark:text-white"
-                      }`}>
+                      <h3 className={`font-medium ${getNotificationTitleClass(notification.isRead)}`}>
                         {notification.title}
                       </h3>
                       <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
