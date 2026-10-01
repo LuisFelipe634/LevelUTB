@@ -1,4 +1,4 @@
-import { createHash, randomInt } from "crypto";
+import { createHash, randomInt } from "node:crypto";
 
 /**
  * Proveedor de envío de OTP con fallback por entorno:
