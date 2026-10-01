@@ -111,10 +111,11 @@ function findBottleneckCourses(unlockedCourses: ReturnType<typeof findUnlockedCo
 function addBottleneckRecommendations(bottleneckCourses: UnlockedCourse[], recommendations: RecommendationItem[]) {
   for (const item of bottleneckCourses.slice(0, 2)) {
     if (item.unlocksCount > 0) {
+      const pluralSuffix = item.unlocksCount > 1 ? "s" : ""
       recommendations.push({
         type: "CURSO_SUGERIDO",
         title: `📚 Prioriza: ${item.course.name}`,
-        description: `Esta materia desbloquea ${item.unlocksCount} curso${item.unlocksCount > 1 ? "s" : ""} más. Tomarla el próximo semestre acelera tu avance en la carrera.`,
+        description: `Esta materia desbloquea ${item.unlocksCount} curso${pluralSuffix} más. Tomarla el próximo semestre acelera tu avance en la carrera.`,
         priority: 1,
       })
     }
@@ -128,10 +129,15 @@ function addFailedCourseRecommendations(failedCourseIds: Set<string>, allCourses
     const course = allCourses.find((c) => c.id === courseId)
     if (!course) continue
 
+    const prereqCount = course.requiredBy.length
+    const prereqText = prereqCount > 0
+      ? `, ya que es prerrequisito de ${prereqCount} curso${prereqCount > 1 ? "s" : ""}`
+      : ""
+
     recommendations.push({
       type: "ALERTA_ATRASO",
       title: `⚠️ Repetir: ${course.name}`,
-      description: `Reprobaste esta materia anteriormente. Te recomendamos inscribirla de nuevo lo antes posible${course.requiredBy.length > 0 ? `, ya que es prerrequisito de ${course.requiredBy.length} curso${course.requiredBy.length > 1 ? "s" : ""}` : ""}.`,
+      description: `Reprobaste esta materia anteriormente. Te recomendamos inscribirla de nuevo lo antes posible${prereqText}.`,
       priority: 1,
     })
   }
