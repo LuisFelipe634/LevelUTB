@@ -583,7 +583,7 @@ function TeachersContent() {
   )
 }
 
-function EmptyState({ icon, title, hint }: { icon: React.ReactNode; title: string; hint: string }) {
+function EmptyState({ icon, title, hint }: Readonly<{ icon: React.ReactNode; title: string; hint: string }>) {
   return (
     <div className="py-10 text-center">
       <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-slate-100 dark:bg-gray-700">{icon}</div>
