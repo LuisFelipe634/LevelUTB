@@ -11,11 +11,9 @@ export const ACTIVITY_ACTIONS = {
   REWARD_REJECTED: "RECOMPENSA_RECHAZADA",
 } as const
 
-export type ActivityAction = string
-
 export function recordUserActivity(
   userId: string,
-  action: ActivityAction,
+  action: string,
   details: Prisma.InputJsonValue = {}
 ) {
   if (!userId || !action) {
