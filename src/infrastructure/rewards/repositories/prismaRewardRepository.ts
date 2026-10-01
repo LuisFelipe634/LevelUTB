@@ -160,9 +160,9 @@ export class PrismaPointRepository implements PointRepository {
 }
 
 export class PrismaRewardServiceRepository implements RewardServiceRepository {
-  private rewardRepository: PrismaRewardRepository
-  private studentRewardRepository: PrismaStudentRewardRepository
-  private pointRepository: PrismaPointRepository
+  private readonly rewardRepository: PrismaRewardRepository
+  private readonly studentRewardRepository: PrismaStudentRewardRepository
+  private readonly pointRepository: PrismaPointRepository
 
   constructor() {
     this.rewardRepository = new PrismaRewardRepository()
@@ -482,15 +482,19 @@ export class PrismaRewardServiceRepository implements RewardServiceRepository {
           },
         })
 
-        await transaction.notification.create({
-          data: {
-            userId: studentReward.studentId,
-            title: "Recompensa rechazada",
-            message: `Tu solicitud para "${studentReward.reward.name}" fue rechazada.${typeof input.comment === "string" && input.comment.trim() ? ` Comentario: ${input.comment.trim()}` : ""} Se te reembolsaron ${studentReward.pointsSpent} puntos.`,
-            type: "SOLICITUD_RECOMPENSA",
-            link: "/recompensas",
-          },
-        })
+        const commentPart = typeof input.comment === "string" && input.comment.trim()
+            ? ` Comentario: ${input.comment.trim()}`
+            : ""
+
+          await transaction.notification.create({
+            data: {
+              userId: studentReward.studentId,
+              title: "Recompensa rechazada",
+              message: `Tu solicitud para "${studentReward.reward.name}" fue rechazada.${commentPart} Se te reembolsaron ${studentReward.pointsSpent} puntos.`,
+              type: "SOLICITUD_RECOMPENSA",
+              link: "/recompensas",
+            },
+          })
       }
 
       const { recordUserActivity, ACTIVITY_ACTIONS } = await import("@/lib/activity")
