@@ -82,7 +82,7 @@ const filterOptions = [
 const isActive = (mission: Mission) => mission.status === "EN_PROGRESO" || mission.status === "PENDIENTE"
 const isCompleted = (mission: Mission) => mission.status === "COMPLETADA" || mission.status === "VERIFICADA"
 
-function MissionProgress({ progress }: { progress: number }) {
+function MissionProgress({ progress }: Readonly<{ progress: number }>) {
   return (
     <div className="mb-3">
       <div className="flex items-center justify-between text-sm mb-1">
@@ -101,7 +101,7 @@ function MissionProgress({ progress }: { progress: number }) {
   )
 }
 
-function MissionHistory({ mission }: { mission: Mission }) {
+function MissionHistory({ mission }: Readonly<{ mission: Mission }>) {
   return (
     <div className="mb-3 space-y-2 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
       {mission.completedAt && (
@@ -134,7 +134,7 @@ interface MissionActionsProps {
   onEvidenceChange: (value: string) => void
 }
 
-function MissionActions({ mission, isActionLoading, evidenceValue, onAction, onEvidenceChange }: MissionActionsProps) {
+function MissionActions({ mission, isActionLoading, evidenceValue, onAction, onEvidenceChange }: Readonly<MissionActionsProps>) {
   const busy = isActionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : null
 
   return (
@@ -208,7 +208,7 @@ function MissionCard({
   evidenceValue,
   onAction,
   onEvidenceChange
-}: MissionCardProps) {
+}: Readonly<MissionCardProps>) {
   const status = statusConfig[mission.status] || statusConfig.NO_ASIGNADA
   const type = typeConfig[mission.type] || typeConfig.ACADEMICO
   const StatusIcon = status.icon
