@@ -172,7 +172,7 @@ export default function LoginPage() {
 
         {/* Footer */}
         <p className="text-center text-sm text-gray-500 dark:text-gray-400 mt-6">
-          Universidad Tecnológica de Bolívar © 2024
+          Universidad Tecnológica de Bolívar © 2026
         </p>
       </div>
     </div>
