@@ -1,13 +1,15 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
-import { getGetMissionsUseCase } from "@/application/missions/missionFactory"
-import { getAcceptMissionUseCase } from "@/application/missions/missionFactory"
-import { getStartMissionUseCase } from "@/application/missions/missionFactory"
-import { getCompleteMissionUseCase } from "@/application/missions/missionFactory"
-import { getVerifyMissionUseCase } from "@/application/missions/missionFactory"
-import { getAwardPointsUseCase } from "@/application/missions/missionFactory"
-import { getCreateNotificationUseCase } from "@/application/missions/missionFactory"
-import { buildStartMetadata } from "@/application/missions/missionFactory"
+import {
+  getGetMissionsUseCase,
+  getAcceptMissionUseCase,
+  getStartMissionUseCase,
+  getCompleteMissionUseCase,
+  getVerifyMissionUseCase,
+  getAwardPointsUseCase,
+  getCreateNotificationUseCase,
+  buildStartMetadata,
+} from "@/application/missions/missionFactory"
 
 type StudentSession = { userId: string } | { error: NextResponse }
 
