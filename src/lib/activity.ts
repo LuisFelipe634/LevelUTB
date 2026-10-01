@@ -11,7 +11,7 @@ export const ACTIVITY_ACTIONS = {
   REWARD_REJECTED: "RECOMPENSA_RECHAZADA",
 } as const
 
-export type ActivityAction = (typeof ACTIVITY_ACTIONS)[keyof typeof ACTIVITY_ACTIONS] | string
+export type ActivityAction = string
 
 export function recordUserActivity(
   userId: string,
