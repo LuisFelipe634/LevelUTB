@@ -1,6 +1,6 @@
 "use client"
 
-import { Bell, Search, Moon, Sun, Loader2, LogOut, BookOpen, Trophy, Target, BarChart3, Users, UserRound, LayoutDashboard, Lightbulb, Menu } from "lucide-react"
+import { Bell, Search, Moon, Sun, LogOut, BookOpen, Trophy, Target, BarChart3, Users, UserRound, LayoutDashboard, Lightbulb, Menu } from "lucide-react"
 import { useTheme } from "next-themes"
 import { useRef, useState, useEffect, useEffectEvent, useSyncExternalStore } from "react"
 import Link from "next/link"
@@ -40,12 +40,12 @@ function getInitials(name?: string | null) {
   if (!name) return "U"
   const names = name.trim().split(/\s+/)
   return (names.length >= 2
-    ? `${names[0][0]}${names[names.length - 1][0]}`
+    ? `${names[0][0]}${names.at(-1)?.[0]}`
     : names[0].substring(0, 2)
   ).toUpperCase()
 }
 
-export function Header({ onToggleSidebar }: { onToggleSidebar: () => void }) {
+export function Header({ onToggleSidebar }: Readonly<{ onToggleSidebar: () => void }>) {
   const router = useRouter()
   const { theme, setTheme } = useTheme()
   const mounted = useSyncExternalStore(
