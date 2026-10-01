@@ -63,6 +63,33 @@ function BadgeOverviewCard({ group, badges, plus = false }: { group: typeof over
   )
 }
 
+function getOriginChip(origin: BadgeOrigin | null): { label: string; cls: string; Icon: typeof Building2 } | null {
+  if (!origin) return null
+  
+  if (origin.degraded) {
+    return {
+      label: "Catalogo local (API de la universidad no disponible)",
+      cls: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200",
+      Icon: TriangleAlert,
+    }
+  }
+  
+  if (origin.source === "http") {
+    const versionSuffix = origin.catalogVersion ? ` v${origin.catalogVersion}` : ""
+    return {
+      label: `Catalogo de la Universidad${versionSuffix}`,
+      cls: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200",
+      Icon: Building2,
+    }
+  }
+  
+  return {
+    label: "Catalogo local",
+    cls: "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200",
+    Icon: HardDrive,
+  }
+}
+
 export default function Insignias() {
   const [badges, setBadges] = useState<Badge[]>([])
   const [loading, setLoading] = useState(true)
@@ -90,15 +117,7 @@ export default function Insignias() {
     void loadBadges()
   }, [])
 
-  // Configuracion del chip de origen. "degraded" gana: si se pidio el catalogo
-  // institucional y no vino, lo relevante es que se esta viendo el local.
-  const originChip = !origin
-    ? null
-    : origin.degraded
-      ? { label: "Catalogo local (API de la universidad no disponible)", cls: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200", Icon: TriangleAlert }
-      : origin.source === "http"
-        ? { label: `Catalogo de la Universidad${origin.catalogVersion ? ` v${origin.catalogVersion}` : ""}`, cls: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200", Icon: Building2 }
-        : { label: "Catalogo local", cls: "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200", Icon: HardDrive }
+  const originChip = getOriginChip(origin)
 
   if (loading) {
     return (
