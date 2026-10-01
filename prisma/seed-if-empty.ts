@@ -49,7 +49,6 @@ async function main() {
       console.error("[seed-if-empty] El seed fallo. Revisa prisma/seed.ts.");
       process.exit(result.status ?? 1);
     }
-    return;
   }
 }
 
