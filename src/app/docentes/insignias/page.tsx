@@ -22,7 +22,7 @@ const GROUPS: BadgeGroup[] = [
   { name: "Conexiones Profesionales", code: "CP", category: "COMPETENCIA", color: "#35c99b", softColor: "#e7fbf4" },
 ]
 
-function BadgeRing({ percentage, plus }: { percentage: number; plus?: boolean }) {
+function BadgeRing({ percentage, plus }: Readonly<{ percentage: number; plus?: boolean }>) {
   const safePercentage = Math.min(100, Math.max(0, percentage))
   return (
     <div className={`relative flex h-18.5 w-18.5 items-center justify-center rounded-full ${plus ? "border-[7px] border-emerald-500" : ""}`}>
@@ -35,7 +35,7 @@ function BadgeRing({ percentage, plus }: { percentage: number; plus?: boolean })
   )
 }
 
-function BadgeCard({ group, students, plus }: { group: BadgeGroup; students: Student[]; plus?: boolean }) {
+function BadgeCard({ group, students, plus }: Readonly<{ group: BadgeGroup; students: Student[]; plus?: boolean }>) {
   const earnedStudents = students.filter((student) => {
     const earned = student.badges.filter((badge) => badge.category === group.category && (plus ? badge.name.endsWith("Plus") : !badge.name.endsWith("Plus"))).length
     return earned > 0
@@ -84,7 +84,7 @@ export default function TeacherBadgesPage() {
   useEffect(() => {
     fetch("/api/teacher")
       .then(async (response) => {
-        if (!response.ok) throw new Error()
+        if (!response.ok) throw new Error("Failed to fetch teacher data")
         const data = await response.json() as TeacherResponse
         setStudents(data.students || [])
       })
