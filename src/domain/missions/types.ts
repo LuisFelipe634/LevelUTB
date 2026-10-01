@@ -1,5 +1,4 @@
-import type { Mission as PrismaMission, StudentMission as PrismaStudentMission, MissionType } from "@prisma/client"
-import type { StudentMission as PrismaStudentMissionModel } from "@prisma/client"
+import type { Mission as PrismaMission, StudentMission as PrismaStudentMission, StudentMission as PrismaStudentMissionModel, MissionType } from "@prisma/client"
 
 export type MissionTypeEnum = MissionType
 export type StudentMissionStatusEnum = PrismaStudentMissionModel["status"]
