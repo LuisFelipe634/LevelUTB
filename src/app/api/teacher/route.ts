@@ -31,7 +31,7 @@ export async function GET() {
         }
       }
     })
-    const assignedCourses = teacher?.teacherProfile?.assignedCourses || []
+    const assignedCourses = teacher?.teacherProfile?.assignedCourses ?? []
     const assignedCourseIds = assignedCourses.map((assignment) => assignment.courseId)
     const assignedPeriods = [...new Set(assignedCourses.map((assignment) => assignment.period))]
 
