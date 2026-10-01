@@ -51,7 +51,10 @@ async function fetchStudentData(studentProfileId: string) {
   return { profile: profile!, allCourses }
 }
 
-function getCourseIdFromHistory(record: typeof profile.academicHistory[0], allCourses: Awaited<ReturnType<typeof fetchStudentData>>["allCourses"]): string | null {
+function getCourseIdFromHistory(
+  record: Awaited<ReturnType<typeof fetchStudentData>>["profile"]["academicHistory"][number],
+  allCourses: Awaited<ReturnType<typeof fetchStudentData>>["allCourses"],
+): string | null {
   return allCourses.find((c) => c.code === record.courseCode)?.id ?? null
 }
 
