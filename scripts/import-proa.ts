@@ -53,39 +53,43 @@ async function main() {
   const lines = raw.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
   const header = lines[0].toLowerCase();
   const start = header.includes("email") ? 1 : 0;
-  let upserted = 0;
 
-  for (const line of lines.slice(start)) {
-    const [emailRaw, studentCodeRaw, programCodeRaw, yearRaw, ...nameParts] =
-      line.split(",").map((s) => s.trim());
-    const email = emailRaw?.toLowerCase();
-    if (!email?.endsWith("@utb.edu.co") || !studentCodeRaw) continue;
-    const program = await prisma.program.findFirst({
-      where: { code: (programCodeRaw || "ISCO").toUpperCase() },
-    });
+  // Parse all valid lines first
+  const parsed = lines.slice(start)
+    .map((line) => {
+      const [emailRaw, studentCodeRaw, programCodeRaw, yearRaw, ...nameParts] =
+        line.split(",").map((s) => s.trim());
+      const email = emailRaw?.toLowerCase();
+      if (!email?.endsWith("@utb.edu.co") || !studentCodeRaw) return null;
+      return { email, studentCodeRaw, programCodeRaw, yearRaw, nameParts };
+    })
+    .filter((item): item is NonNullable<typeof item> => item !== null);
+
+  // Fetch all programs in parallel
+  const programCodes = [...new Set(parsed.map((p) => (p.programCodeRaw || "ISCO").toUpperCase()))];
+  const programs = await Promise.all(
+    programCodes.map((code) => prisma.program.findFirst({ where: { code } }))
+  );
+  const programMap = new Map(programCodes.map((code, i) => [code, programs[i]]));
+
+  // Upsert all students in parallel
+  const upsertPromises = parsed.map(({ email, studentCodeRaw, programCodeRaw, yearRaw, nameParts }) => {
+    const program = programMap.get((programCodeRaw || "ISCO").toUpperCase());
     if (!program) {
       console.warn(`Programa no encontrado: ${programCodeRaw} (${email})`);
-      continue;
+      return Promise.resolve();
     }
-    await prisma.allowedStudent.upsert({
+    const admissionYear = Number(yearRaw) || Number(studentCodeRaw.slice(0, 4));
+    const fullName = nameParts.join(",") || null;
+    return prisma.allowedStudent.upsert({
       where: { email },
-      update: {
-        studentCode: studentCodeRaw,
-        programId: program.id,
-        admissionYear: Number(yearRaw) || Number(studentCodeRaw.slice(0, 4)),
-        fullName: nameParts.join(",") || null,
-      },
-      create: {
-        email,
-        studentCode: studentCodeRaw,
-        programId: program.id,
-        admissionYear: Number(yearRaw) || Number(studentCodeRaw.slice(0, 4)),
-        fullName: nameParts.join(",") || null,
-      },
+      update: { studentCode: studentCodeRaw, programId: program.id, admissionYear, fullName },
+      create: { email, studentCode: studentCodeRaw, programId: program.id, admissionYear, fullName },
     });
-    upserted++;
-  }
-  console.log(`✅ AllowedStudent actualizados: ${upserted}`);
+  });
+
+  await Promise.all(upsertPromises);
+  console.log(`✅ AllowedStudent actualizados: ${parsed.length}`);
 }
 
 main()
