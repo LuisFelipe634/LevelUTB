@@ -251,7 +251,7 @@ export async function PATCH(request: Request) {
       where: { id: studentMissionId },
       include: { mission: true, student: true }
     })
-    if (!studentMission || studentMission.status !== "EN_REVISION") {
+    if (!studentMission?.status === "EN_REVISION") {
       return NextResponse.json({ error: "La misión no está pendiente de revisión" }, { status: 400 })
     }
 

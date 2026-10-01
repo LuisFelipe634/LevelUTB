@@ -195,7 +195,7 @@ export default function Dashboard() {
     )
   }
 
-  if (!data.profile || !data.profile.program) {
+  if (!data?.profile?.program) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
