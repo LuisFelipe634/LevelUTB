@@ -48,7 +48,7 @@ export function buildStats(rewardsWithEligibility: ReturnType<typeof buildReward
     }
     acc[reward.category].total++
     if (reward.canUse && reward.canAfford) acc[reward.category].available++
-    if (reward.earned && reward.earned.status === "APROBADO") acc[reward.category].used++
+    if (reward.earned?.status === "APROBADO") acc[reward.category].used++
     return acc
   }, {} as Record<string, { total: number; available: number; used: number }>)
 
