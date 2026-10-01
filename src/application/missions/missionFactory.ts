@@ -5,7 +5,10 @@ import { GetMissionsUseCase, AcceptMissionUseCase, StartMissionUseCase, Complete
 let missionServiceRepository: MissionServiceRepository | null = null
 
 function getMissionServiceRepository(): MissionServiceRepository {
-  return missionServiceRepository ??= new PrismaMissionServiceRepository()
+  if (!missionServiceRepository) {
+    missionServiceRepository = new PrismaMissionServiceRepository()
+  }
+  return missionServiceRepository
 }
 
 export function getGetMissionsUseCase(): GetMissionsUseCase {
