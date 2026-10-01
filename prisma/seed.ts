@@ -493,9 +493,7 @@ async function createCurriculum() {
   const program = await prisma.program.create({ data: PROGRAM_DATA })
   console.log('✅ Programa creado:', program.name)
 
-  for (const semesterData of SEMESTERS_DATA) {
-    await createSemester(program.id, semesterData)
-  }
+  await Promise.all(SEMESTERS_DATA.map((semesterData) => createSemester(program.id, semesterData)))
   console.log('✅ Semestres y cursos creados')
 
   return program
@@ -510,9 +508,7 @@ async function createSemester(programId: string, semesterData: SemesterSeed) {
     },
   })
 
-  for (const courseData of semesterData.courses) {
-    await createCourse(programId, semester.id, courseData)
-  }
+  await Promise.all(semesterData.courses.map((courseData) => createCourse(programId, semester.id, courseData)))
 }
 
 async function createCourse(programId: string, semesterId: string, courseData: CourseSeed) {
@@ -521,9 +517,7 @@ async function createCourse(programId: string, semesterId: string, courseData: C
     data: { ...courseInfo, programId, semesterId },
   })
 
-  for (const prereqCode of prereq) {
-    await linkPrerequisite(course.id, prereqCode)
-  }
+  await Promise.all(prereq.map((prereqCode) => linkPrerequisite(course.id, prereqCode)))
 }
 
 async function linkPrerequisite(courseId: string, prereqCode: string) {
@@ -536,20 +530,14 @@ async function linkPrerequisite(courseId: string, prereqCode: string) {
 }
 
 async function createCatalog() {
-  for (const levelData of LEVELS_DATA) {
-    await prisma.level.create({ data: levelData })
-  }
+  await Promise.all(LEVELS_DATA.map((levelData) => prisma.level.create({ data: levelData })))
   console.log('✅ Niveles creados')
 
   console.log('🎁 Creando recompensas...')
-  for (const rewardData of REWARDS_DATA) {
-    await prisma.reward.create({ data: rewardData })
-  }
+  await Promise.all(REWARDS_DATA.map((rewardData) => prisma.reward.create({ data: rewardData })))
   console.log('✅ Recompensas creadas')
 
-  for (const missionData of MISSIONS_DATA) {
-    await prisma.mission.create({ data: missionData })
-  }
+  await Promise.all(MISSIONS_DATA.map((missionData) => prisma.mission.create({ data: missionData })))
   console.log('✅ Misiones creadas')
 }
 
@@ -565,10 +553,10 @@ async function seedBadges() {
   }
   console.log('✅ Insignias creadas')
 
+  const awardPromises: Promise<unknown>[] = []
   for (const [studentCode, awards] of Object.entries(AWARDED_BADGES_BY_STUDENT)) {
     const profile = await prisma.studentProfile.findUnique({
       where: { studentCode },
-      // StudentBadge.studentId referencia User.id, no StudentProfile.id.
       select: { userId: true },
     })
     if (!profile) continue
@@ -582,11 +570,14 @@ async function seedBadges() {
       const earnedAt = new Date()
       earnedAt.setUTCDate(earnedAt.getUTCDate() - award.daysAgo)
 
-      await prisma.studentBadge.create({
-        data: { studentId: profile.userId, badgeId, earnedAt, evidence: award.evidence },
-      })
+      awardPromises.push(
+        prisma.studentBadge.create({
+          data: { studentId: profile.userId, badgeId, earnedAt, evidence: award.evidence },
+        })
+      )
     }
   }
+  await Promise.all(awardPromises)
   console.log('✅ Insignias obtenidas por los estudiantes demo')
 }
 
@@ -623,26 +614,27 @@ async function seedDemoHistory(studentId: string, programId: string) {
     orderBy: [{ semester: { number: 'asc' } }, { code: 'asc' }],
   })
 
-  for (const course of courses) {
-    const semesterNumber = course.semester.number
-    if (semesterNumber > DEMO_CURRENT_SEMESTER) continue
+  const enrollmentPromises = courses
+    .filter((course) => course.semester.number <= DEMO_CURRENT_SEMESTER)
+    .map((course) => {
+      const semesterNumber = course.semester.number
+      const isCurrent = semesterNumber === DEMO_CURRENT_SEMESTER
+      const pastYear = 2019 + semesterNumber - 1
+      const pastSemester = semesterNumber % 2 === 0 ? 2 : 1
+      const pastPeriod = `${pastYear}-${pastSemester}`
 
-    const isCurrent = semesterNumber === DEMO_CURRENT_SEMESTER
-    const pastYear = 2019 + semesterNumber - 1
-    const pastSemester = semesterNumber % 2 === 0 ? 2 : 1
-    const pastPeriod = `${pastYear}-${pastSemester}`
-
-    await prisma.enrollment.create({
-      data: {
-        studentId,
-        courseId: course.id,
-        semesterCode: isCurrent ? CURRENT_PERIOD : pastPeriod,
-        status: isCurrent ? 'CURSANDO' : 'APROBADO',
-        grade: isCurrent ? null : DEMO_HISTORY_GRADES[(semesterNumber - 1) % 6],
-      },
+      return prisma.enrollment.create({
+        data: {
+          studentId,
+          courseId: course.id,
+          semesterCode: isCurrent ? CURRENT_PERIOD : pastPeriod,
+          status: isCurrent ? 'CURSANDO' : 'APROBADO',
+          grade: isCurrent ? null : DEMO_HISTORY_GRADES[(semesterNumber - 1) % 6],
+        },
+      })
     })
-  }
 
+  await Promise.all(enrollmentPromises)
   console.log('✅ Inscripciones del usuario demo creadas')
 }
 
@@ -679,22 +671,23 @@ async function seedSecondStudentHistory(studentId: string, programId: string) {
     orderBy: { semester: { number: 'asc' } },
   })
 
-  for (const course of courses) {
-    const semesterNumber = course.semester.number
-    if (semesterNumber > SARA_CURRENT_SEMESTER) continue
-
-    const isApproved = semesterNumber < SARA_CURRENT_SEMESTER
-    await prisma.enrollment.create({
-      data: {
-        studentId,
-        courseId: course.id,
-        semesterCode: isApproved ? `${2018 + semesterNumber}-1` : CURRENT_PERIOD,
-        status: isApproved ? 'APROBADO' : 'CURSANDO',
-        grade: isApproved ? 4.0 : null,
-      },
+  const enrollmentPromises = courses
+    .filter((course) => course.semester.number <= SARA_CURRENT_SEMESTER)
+    .map((course) => {
+      const semesterNumber = course.semester.number
+      const isApproved = semesterNumber < SARA_CURRENT_SEMESTER
+      return prisma.enrollment.create({
+        data: {
+          studentId,
+          courseId: course.id,
+          semesterCode: isApproved ? `${2018 + semesterNumber}-1` : CURRENT_PERIOD,
+          status: isApproved ? 'APROBADO' : 'CURSANDO',
+          grade: isApproved ? 4.0 : null,
+        },
+      })
     })
-  }
 
+  await Promise.all(enrollmentPromises)
   console.log('✅ Sara Peña configurada: semestres 1-7 aprobados y semestre 8 en curso')
 }
 
@@ -791,11 +784,13 @@ function findCurrentCourses() {
 }
 
 async function assignTeacherCourses(teacherId: string, courses: Array<{ id: string }>) {
-  for (const course of courses) {
-    await prisma.teacherCourse.create({
-      data: { teacherId, courseId: course.id, period: CURRENT_PERIOD },
-    })
-  }
+  await Promise.all(
+    courses.map((course) =>
+      prisma.teacherCourse.create({
+        data: { teacherId, courseId: course.id, period: CURRENT_PERIOD },
+      })
+    )
+  )
 
   console.log(`✅ Materias vigentes asignadas al docente: ${courses.length}`)
   return courses
@@ -822,22 +817,23 @@ async function linkCurrentEnrollments(
     { code: 'C02A', student: juan },
   ]
 
-  for (const { code, student } of enrollmentsByCourse) {
-    if (!student) continue
-
-    const course = courseByCode.get(code)
-    if (!course) continue
-
-    await enrollIfMissing(student.id, course.id, 'CURSANDO')
-  }
+  await Promise.all(
+    enrollmentsByCourse
+      .filter(({ student }) => student)
+      .map(({ code, student }) => {
+        const course = courseByCode.get(code)
+        if (!course) return Promise.resolve()
+        return enrollIfMissing(student!.id, course.id, 'CURSANDO')
+      })
+  )
 }
 
 async function approveCurrentCredits(studentId: string) {
   const courses = await prisma.course.findMany({ where: { code: { in: CURRENT_APPROVED_CODES } } })
 
-  for (const course of courses) {
-    await enrollIfMissing(studentId, course.id, 'APROBADO', CURRENT_APPROVED_GRADES[course.code] ?? 4.0)
-  }
+  await Promise.all(
+    courses.map((course) => enrollIfMissing(studentId, course.id, 'APROBADO', CURRENT_APPROVED_GRADES[course.code] ?? 4.0))
+  )
 }
 
 async function enrollIfMissing(
@@ -864,18 +860,20 @@ async function seedThirdStudentHistory(studentId: string, programId: string) {
     orderBy: [{ semester: { number: 'asc' } }, { code: 'asc' }],
   })
 
-  for (const course of courses) {
-    const isApproved = course.semester.number < ANGELA_CURRENT_SEMESTER
-    const semesterCode = isApproved ? `${2024 + course.semester.number}-1` : CURRENT_PERIOD
-    const status = isApproved ? 'APROBADO' : 'CURSANDO'
-    const grade = isApproved ? 4.7 : null
+  await Promise.all(
+    courses.map((course) => {
+      const isApproved = course.semester.number < ANGELA_CURRENT_SEMESTER
+      const semesterCode = isApproved ? `${2024 + course.semester.number}-1` : CURRENT_PERIOD
+      const status = isApproved ? 'APROBADO' : 'CURSANDO'
+      const grade = isApproved ? 4.7 : null
 
-    await prisma.enrollment.upsert({
-      where: { studentId_courseId_semesterCode: { studentId, courseId: course.id, semesterCode } },
-      update: { status, grade, source: 'UNIVERSITY' },
-      create: { studentId, courseId: course.id, semesterCode, status, grade, source: 'UNIVERSITY' },
+      return prisma.enrollment.upsert({
+        where: { studentId_courseId_semesterCode: { studentId, courseId: course.id, semesterCode } },
+        update: { status, grade, source: 'UNIVERSITY' },
+        create: { studentId, courseId: course.id, semesterCode, status, grade, source: 'UNIVERSITY' },
+      })
     })
-  }
+  )
 }
 
 main()
