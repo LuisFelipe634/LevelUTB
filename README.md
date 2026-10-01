@@ -1,4 +1,4 @@
-# UTB Gamificación
+# LevelUTB
 
 Plataforma gamificada para el seguimiento del avance académico de estudiantes de la Universidad Tecnológica de Bolívar.
 
@@ -22,6 +22,7 @@ Sistema web donde el estudiante visualiza su progreso en la malla curricular, ga
 | Iconos | lucide-react |
 | Temas | next-themes (claro/oscuro, `src/components/providers/ThemeProvider.tsx`) |
 | Sesión cliente | `src/components/providers/SessionProvider.tsx` |
+| Utilidades | `src/lib/period.ts` (períodos académicos centralizados) |
 
 ---
 
@@ -52,7 +53,7 @@ Next.js App Router (src/app/layout.tsx -> AppShell -> Sidebar/Header)
 | Guard global | `src/middleware.ts` | Deja pasar `/login`, `/api/auth`, estáticos; si no hay cookie de sesión redirige a `/login?callbackUrl=...`. Cada API además valida JSON. |
 | Sesión/roles | `src/lib/auth.ts`, `src/lib/session.ts` | `auth()`, `requireRole("STUDENT"\|"TEACHER")`, `jsonUnauthorized`, `jsonForbidden`. Login solo `@utb.edu.co`. |
 | Rutas HTTP | `src/app/api/**/route.ts` | Validan entrada, rol y responden JSON. Ver `src/app/api/README.md`. |
-| Dominio | `src/lib/` | `academic.ts` (promedio, semestre actual, tope créditos), `recommendations.ts`, `streak.ts`, `activity.ts` (`ACTIVITY_ACTIONS`, racha diaria), `missionRules.ts` + `missionVerification.ts` (auto-verificación), `getBadgeSource.ts` (origen del catálogo de insignias). |
+| Dominio | `src/lib/` | `academic.ts` (promedio, semestre actual, tope créditos), `recommendations.ts`, `streak.ts`, `activity.ts` (`ACTIVITY_ACTIONS`, racha diaria), `missionRules.ts` + `missionVerification.ts` (auto-verificación), `getBadgeSource.ts` (origen del catálogo de insignias), `period.ts` (períodos académicos centralizados). |
 | Persistencia | `src/lib/prisma.ts` | Singleton `PrismaClient` + `PrismaPg`. En dev se reutiliza vía `globalThis`. |
 | Modelo | `prisma/schema.prisma` | 22 modelos: usuarios, malla, progreso, gamificación, recompensas, notificaciones, riesgo. |
 | Datos | `prisma/seed.ts` | Seed base (programa ISCO 2019, 10 semestres, 55 cursos, 162 créditos, niveles, misiones, recompensas y usuarios demo). |
@@ -153,18 +154,19 @@ utb-gamificacion/
   setup.sh                   # Instalación automática (Node via nvm, Postgres, .env, db:push, seed)
   next.config.ts / tsconfig.json / eslint.config.mjs / postcss.config.mjs / prisma.config.ts
   public/utb-logotipo.png
-  scripts/                   # (vacía, utilidades futuras)
+  scripts/                   # import-proa.ts, sync-badges.ts, badges.json
   prisma/
     schema.prisma            # 22 modelos
     migrations/              # Migraciones SQL
     seed.ts                  # Seed base: ISCO 2019 + insignias + usuarios demo
+    seed-if-empty.ts         # Seed condicional (solo si users está vacía)
   src/
     middleware.ts            # Guard de páginas -> /login
     app/
       layout.tsx / globals.css / page.tsx (-> /dashboard) / favicon.ico
       login/ dashboard/ malla/ misiones/ logros/ recompensas/
       estadisticas/ notificaciones/ perfil/ docentes/ docentes/insignias/ perfil-docente/
-      api/                   # Backend (ver src/app/api/README.md)
+      api/                   # Backend (ver docs/arc42.md §5)
     components/
       layout/AppShell.tsx    # Oculta Sidebar/Header en /login
       layout/Sidebar.tsx / layout/Header.tsx  # Nav por rol + búsqueda global
@@ -175,9 +177,10 @@ utb-gamificacion/
       recommendations.ts / streak.ts / activity.ts
       missionRules.ts (+ missionRules.test.ts) / missionVerification.ts
       badgeSource.ts / getBadgeSource.ts # Origen del catálogo de insignias
+      period.ts              # Utilidad centralizada de períodos académicos
 ```
 
-Estructura detallada del frontend: `src/app/README.md`. Estructura del backend: `src/app/api/README.md`.
+Estructura detallada: `docs/arc42.md` (§5 vista de bloques, §7 despliegue).
 
 ---
 
@@ -360,7 +363,7 @@ docker compose down -v    # Para y borra la base de datos
 ./setup.sh --skip-db    # Solo dependencias npm
 
 npm run dev              # Dev con hot reload
-npm run build            # Build producción
+nnnpm run build            # Build producción
 npm run start            # Servidor producción
 
 npm run db:generate      # Generar cliente Prisma
@@ -369,13 +372,44 @@ npm run db:seed          # Seed base DESTRUCTIVO (tsx prisma/seed.ts)
 npm run db:seed-if-empty # Seed solo si la tabla users está vacía (no destructivo)
 npm run db:studio        # Prisma Studio GUI
 
-npm run lint             # ESLint (next + TS)
-npm run test:unit        # Tests unitarios (tsx --test src/lib/**/*.test.ts)
+nnnpm run lint             # ESLint (next + TS)
+nnnpm run test:unit        # Tests unitarios (tsx --test src/lib/**/*.test.ts)
 ```
 
 ---
 
-## Modelos de Base de Datos (22)
+## Modelos de Base de Datos (2
+
+## Mejoras Recientes (Limpieza y Refactor)
+
+### Limpieza de Código
+- **Dependencias eliminadas**: clsx y tailwind-merge (no utilizadas en el código)
+- **Documentación redundante eliminada**: src/app/README.md y src/app/api/README.md (contenido consolidado en README.md y docs/arc42.md)
+- **Comentarios narrativos eliminados** en ~15 archivos (src/lib/*, src/app/api/**/route.ts) — se conservan solo decisiones arquitectónicas, reglas de negocio no evidentes y advertencias técnicas
+
+### Centralización de Lógica Duplicada
+- **Nuevo módulo**: src/lib/period.ts — utilidad centralizada para manejo de períodos académicos
+- **Funciones exportadas**: getCurrentPeriod(), parsePeriod(), getNextPeriod(), getPreviousPeriod(), getSemesterFromPeriod(), getYearFromPeriod(), isCurrentPeriod()\r
+- **7 ocurrencias duplicadas eliminadas** de getMonth() < 6 / getCurrentPeriod() en:
+  - src/lib/missionVerification.ts\r
+  - src/app/api/student/route.ts\r
+  - src/app/api/curriculum/route.ts\r
+  - src/app/api/stats/route.ts\r
+  - src/application/rewards/rewardFactory.ts\r
+  - src/domain/rewards/rewardRules.ts\r
+  - src/lib/recommendations.ts\r
+
+### Validación Post-Limpieza
+| Comando | Resultado |
+|---------|-----------|
+| npm run lint | ✅ PASS (0 errors, 0 warnings) |
+| npm run build | ✅ PASS (29 páginas generadas) |
+| npm run test:unit | ✅ PASS (25 tests) |
+| npm run prisma validate | ✅ PASS (schema válido) |
+
+---
+
+## Modelo de Base de Datos (22)
 
 ### Usuarios y auth
 
