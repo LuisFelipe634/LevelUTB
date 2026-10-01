@@ -110,7 +110,7 @@ function emptyStateMessage(filter: string): string {
   return "No hay recompensas en esta categoría"
 }
 
-function RewardEarnedStatus({ earned }: { earned: EarnedReward }) {
+function RewardEarnedStatus({ earned }: Readonly<{ earned: EarnedReward }>) {
   const status = statusConfig[earned.status]
 
   return (
@@ -162,7 +162,7 @@ function RewardRedeemForm({
   onRedeem,
   onTargetCourseChange,
   onEvidenceChange
-}: RewardRedeemFormProps) {
+}: Readonly<RewardRedeemFormProps>) {
   if (enrolledCourses.length === 0) {
     return (
       <p className="text-xs text-amber-600 dark:text-amber-400 py-2">
@@ -219,7 +219,7 @@ interface RewardActionProps extends Omit<RewardRedeemFormProps, "onRedeem"> {
   onRedeem: () => void
 }
 
-function RewardAction({ reward, enrolledCourses, currentPeriod, targetCourseValue, evidenceValue, isRedeeming, onRedeem, onTargetCourseChange, onEvidenceChange }: RewardActionProps) {
+function RewardAction({ reward, enrolledCourses, currentPeriod, targetCourseValue, evidenceValue, isRedeeming, onRedeem, onTargetCourseChange, onEvidenceChange }: Readonly<RewardActionProps>) {
   if (reward.earned) {
     return (
       <div className="pt-3 border-t border-gray-100 dark:border-gray-700">
@@ -279,7 +279,7 @@ function RewardCard({
   onRedeem,
   onTargetCourseChange,
   onEvidenceChange
-}: RewardCardProps) {
+}: Readonly<RewardCardProps>) {
   const category = categoryConfig[reward.category] || categoryConfig.OTRO
   const CatIcon = category.icon
   const hasEarned = !!reward.earned
