@@ -160,8 +160,22 @@ const statusConfig = {
   blocked: {
     label: "Bloqueada",
     color: "bg-gray-100 border-gray-400 text-gray-600 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-400",
-    icon: Lock
+icon: Lock
   }
+}
+
+function formatProgramTitle(program: { name: string; version: string } | null, currentSemester: number | null, period: string): string {
+  const base = program ? `${program.name} - Plan ${program.version}` : "Ingeniería de Sistemas - Plan 2019"
+  const semesterPart = currentSemester ? ` · Semestre actual ${currentSemester}` : ""
+  const periodPart = period ? ` · Periodo ${period}` : ""
+  return `${base}${semesterPart}${periodPart}`
+}
+
+function formatHeaderTitle(program: { version: string } | null, period: string, currentSemester: number | null): string {
+  const versionPart = `Plan ${program ? program.version : "2019"}`
+  const periodPart = period ? ` · ${period}` : ""
+  const semesterPart = currentSemester ? ` · Semestre actual ${currentSemester}` : " · Semestre actual -"
+  return `${versionPart}${periodPart}${semesterPart}`
 }
 
 export default function MallaCurricular() {
@@ -255,7 +269,7 @@ export default function MallaCurricular() {
           Malla Curricular
         </h1>
         <p className="text-gray-600 dark:text-gray-400">
-          {program ? `${program.name} - Plan ${program.version}` : "Ingeniería de Sistemas - Plan 2019"}{currentSemester && ` · Semestre actual ${currentSemester}`}{period ? ` · Periodo ${period}` : ""}
+          {formatProgramTitle(program, currentSemester, period)}
         </p>
       </div>
 
@@ -269,7 +283,7 @@ export default function MallaCurricular() {
             </div>
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-600 dark:text-blue-400">
-                Plan {program ? `${program.version}` : "2019"}{period ? ` · ${period}` : ""} · Semestre actual {currentSemester || "-"}
+                {formatHeaderTitle(program, period, currentSemester)}
               </p>
               <h2 className="mt-1 text-xl font-bold text-slate-900 dark:text-white">
                 Plan de estudios y avance

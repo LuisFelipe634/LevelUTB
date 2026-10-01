@@ -31,6 +31,11 @@ const typeConfig: Record<string, { icon: React.ComponentType<{ className?: strin
   RECORDATORIO: { icon: Clock, color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-50 dark:bg-blue-900/20" }
 }
 
+function getUnreadLabel(count: number): string {
+  if (count === 0) return "No tienes notificaciones nuevas"
+  return `Tienes ${count} notificación${count > 1 ? "es" : ""} sin leer`
+}
+
 export async function fetchNotificationsData(
   setNotifications: React.Dispatch<React.SetStateAction<Notification[]>>,
   setLoading: React.Dispatch<React.SetStateAction<boolean>>
@@ -134,9 +139,7 @@ export default function Notificaciones() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Notificaciones</h1>
           <p className="text-gray-600 dark:text-gray-400">
-            {unreadCount > 0
-              ? `Tienes ${unreadCount} notificación${unreadCount > 1 ? "es" : ""} sin leer`
-              : "No tienes notificaciones nuevas"}
+            {getUnreadLabel(unreadCount)}
           </p>
         </div>
         {unreadCount > 0 && (
