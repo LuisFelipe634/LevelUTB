@@ -5,10 +5,7 @@ import { GetStudentRewardsUseCase, RedeemRewardUseCase, GetTeacherRewardsUseCase
 let rewardServiceRepository: RewardServiceRepository | null = null
 
 function getRewardServiceRepository(): RewardServiceRepository {
-  if (!rewardServiceRepository) {
-    rewardServiceRepository = new PrismaRewardServiceRepository()
-  }
-  return rewardServiceRepository
+  return rewardServiceRepository ??= new PrismaRewardServiceRepository()
 }
 
 export function getGetStudentRewardsUseCase(): GetStudentRewardsUseCase {
