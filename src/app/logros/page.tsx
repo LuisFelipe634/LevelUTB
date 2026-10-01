@@ -32,7 +32,7 @@ const overviewGroups = [
   { name: "Conexiones Profesionales", code: "CP", category: "COMPETENCIA", color: "#35c99b" },
 ]
 
-function BadgeOverviewCard({ group, badges, plus = false }: { group: typeof overviewGroups[number]; badges: Badge[]; plus?: boolean }) {
+function BadgeOverviewCard({ group, badges, plus = false }: Readonly<{ group: typeof overviewGroups[number]; badges: Badge[]; plus?: boolean }>) {
   const categoryBadges = badges.filter((badge) => badge.category === group.category && (plus ? badge.name.endsWith("Plus") : !badge.name.endsWith("Plus")))
   const earned = categoryBadges.filter((badge) => badge.earned).length
   const total = plus ? earned : categoryBadges.length
