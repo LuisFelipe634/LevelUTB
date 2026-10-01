@@ -33,12 +33,10 @@ async function isDatabaseEmpty(): Promise<boolean> {
 
 async function main() {
   if (process.env.SEED_IF_EMPTY === "false") {
-    console.log("[seed-if-empty] SEED_IF_EMPTY=false, se omite el seed.");
     return;
   }
 
   if (await isDatabaseEmpty()) {
-    console.log("[seed-if-empty] Base vacia detected, sembrando datos de ejemplo...");
     // Se llama al CLI de tsx por ruta absoluta con el node del propio proceso:
     // sin "npx" (descarga paquetes en runtime) y sin "shell: true" (que
     // resolveria el binario via PATH, con riesgo de directorios con escritura).
@@ -53,8 +51,6 @@ async function main() {
     }
     return;
   }
-
-  console.log("[seed-if-empty] Base ya tiene datos, se conserva sin sembrar.");
 }
 
 main()

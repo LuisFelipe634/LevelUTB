@@ -117,19 +117,11 @@ export function filterRewardEligibleCourses(
     return isOfficialStatus && isOfficialSource && matchesPeriod && hasCourseSemester
   })
 
-  if (!officialEnrollments.length) {
-    return []
-  }
-
-  const currentSemester = getCurrentSemester(officialEnrollments, 1, period)
-
-  return officialEnrollments
-    .filter((enrollment) => enrollment.course?.semester?.number === currentSemester)
-    .map((enrollment) => ({
-      id: enrollment.courseId ?? enrollment.course?.id ?? "",
-      code: enrollment.course?.code ?? "",
-      name: enrollment.course?.name ?? "",
-      semester: enrollment.course?.semester?.number ?? 0,
-      period: enrollment.semesterCode ?? period ?? ""
-    }))
+  return officialEnrollments.map((enrollment) => ({
+    id: enrollment.courseId ?? enrollment.course?.id ?? "",
+    code: enrollment.course?.code ?? "",
+    name: enrollment.course?.name ?? "",
+    semester: enrollment.course?.semester?.number ?? 0,
+    period: enrollment.semesterCode ?? period ?? ""
+  }))
 }

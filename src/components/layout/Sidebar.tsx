@@ -1,5 +1,6 @@
 "use client"
 
+import Image from "next/image"
 import Link from "next/link"
 import { usePathname, useSearchParams } from "next/navigation"
 import {
@@ -94,10 +95,12 @@ function SidebarContent({ isOpen, onClose }: Readonly<{ isOpen: boolean; onClose
       <aside className={`fixed inset-y-0 left-0 z-40 w-64 flex-col overflow-hidden border-r border-[#e4eaf3] bg-[#fbfcfe] dark:border-gray-700 dark:bg-gray-900 lg:flex lg:z-40 ${isOpen ? "flex" : "hidden"}`}>
       <div className="px-7 pb-2 pt-3">
             <div className="flex flex-col items-center gap-2">
-          <img 
-            src="/utb-logotipo.png" 
-            alt="UTB Logo" 
-            className="w-24 h-auto object-contain dark:drop-shadow-[0_0_8px_rgba(255,255,255,0.4)]"
+          <Image
+            src="/utb-logotipo.png"
+            alt="UTB Logo"
+            width={96}
+            height={40}
+            className="h-auto w-24 object-contain dark:drop-shadow-[0_0_8px_rgba(255,255,255,0.4)]"
           />
           <span className="text-center text-[11px] font-medium text-blue-600 dark:text-blue-300">
             Universidad Tecnológica de Bolívar

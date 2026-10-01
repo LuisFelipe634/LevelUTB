@@ -8,7 +8,6 @@ const connectionString = process.env.DATABASE_URL!
 // No se imprime nada derivado de DATABASE_URL: enmascarar la URL con regex
 // deja escapar claves con "@" y query params como ?sslpassword=. El host
 // aparece solo en el error de conexion de Prisma si algo falla.
-console.log('🔗 Conectando a la base de datos...')
 const adapter = new PrismaPg({ connectionString })
 const prisma = new PrismaClient({ adapter })
 
@@ -424,11 +423,7 @@ const MISSIONS_DATA: MissionSeed[] = [
 // El orden de escritura importa: el upsert de la historia de Angela al final
 // actualiza la matricula de C04A en el periodo actual que crea el bloque docente.
 async function main() {
-  console.log('🌱 Iniciando seed de la base de datos...')
-
-  console.log('🧹 Limpiando datos existentes...')
   await cleanDatabase()
-  console.log('✅ Datos limpiados')
 
   const program = await createCurriculum()
   await createCatalog()
@@ -510,10 +505,6 @@ async function main() {
     secondTeacher.profileId,
     currentCourses.filter((course) => course.code === SECOND_TEACHER_COURSE_CODE)
   )
-
-  console.log('✅ Cuatro cursos y estudiantes demo asignados al docente')
-
-  console.log('🎉 Seed completado exitosamente!')
 }
 
 async function cleanDatabase() {

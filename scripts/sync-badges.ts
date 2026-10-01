@@ -12,6 +12,8 @@ const prisma = new PrismaClient({ adapter })
 
 // Cargar fixtures locales directamente (más rápido y confiable que HTTP)
 const badgeFixturesPath = join(__dirname, 'badges.json')
+type BadgeCategory = 'PROGRESO' | 'COMPETENCIA' | 'HABITO' | 'IMPACTO_SOCIAL' | 'RENDIMIENTO'
+
 const badgeFixtures = JSON.parse(readFileSync(badgeFixturesPath, 'utf-8')) as {
   catalogVersion: string
   issuer: string
@@ -20,7 +22,7 @@ const badgeFixtures = JSON.parse(readFileSync(badgeFixturesPath, 'utf-8')) as {
     name: string
     description: string
     iconUrl: string
-    category: string
+    category: BadgeCategory
     requiredLevel: number | null
     pointsRequired: number | null
   }>
@@ -43,7 +45,7 @@ async function upsertBadge(badge: typeof badgeFixtures.badges[0]): Promise<strin
       data: {
         description: badge.description,
         iconUrl: badge.iconUrl,
-        category: badge.category as any,
+        category: badge.category,
         requiredLevel: badge.requiredLevel,
         pointsRequired: badge.pointsRequired,
       },
@@ -55,7 +57,7 @@ async function upsertBadge(badge: typeof badgeFixtures.badges[0]): Promise<strin
       name: badge.name,
       description: badge.description,
       iconUrl: badge.iconUrl,
-      category: badge.category as any,
+      category: badge.category,
       requiredLevel: badge.requiredLevel,
       pointsRequired: badge.pointsRequired,
     },

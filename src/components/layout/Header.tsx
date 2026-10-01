@@ -36,15 +36,6 @@ function normalizeSearchText(value: string) {
   return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
 }
 
-function getInitials(name?: string | null) {
-  if (!name) return "U"
-  const names = name.trim().split(/\s+/)
-  return (names.length >= 2
-    ? `${names[0][0]}${names.at(-1)?.[0]}`
-    : names[0].substring(0, 2)
-  ).toUpperCase()
-}
-
 export function Header({ onToggleSidebar }: Readonly<{ onToggleSidebar: () => void }>) {
   const router = useRouter()
   const { theme, setTheme } = useTheme()
