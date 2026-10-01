@@ -297,17 +297,19 @@ export class PrismaRewardServiceRepository implements RewardServiceRepository {
           include: { teacher: true },
         })
         const teacherIds = [...new Set(teacherCourses.map((tc) => tc.teacher.userId))]
-        for (const teacherId of teacherIds) {
-          await tx.notification.create({
-            data: {
-              userId: teacherId,
-              title: "Nueva solicitud de recompensa",
-              message: `Un estudiante ha solicitado "${reward.name}" para el curso seleccionado. Revisa en el panel de docentes.`,
-              type: "SOLICITUD_RECOMPENSA",
-              link: "/docentes",
-            },
-          })
-        }
+        await Promise.all(
+          teacherIds.map((teacherId) =>
+            tx.notification.create({
+              data: {
+                userId: teacherId,
+                title: "Nueva solicitud de recompensa",
+                message: `Un estudiante ha solicitado "${reward.name}" para el curso seleccionado. Revisa en el panel de docentes.`,
+                type: "SOLICITUD_RECOMPENSA",
+                link: "/docentes",
+              },
+            })
+          )
+        )
       }
 
       return toStudentRewardDomain(sr)
@@ -326,7 +328,7 @@ export class PrismaRewardServiceRepository implements RewardServiceRepository {
       },
     })
 
-    const assignedCourses = teacher?.teacherProfile?.assignedCourses || []
+    const assignedCourses = teacher?.teacherProfile?.assignedCourses ?? []
     const assignedCourseIds = assignedCourses.map((assignment) => assignment.courseId)
     const assignedPeriods = [...new Set(assignedCourses.map((assignment) => assignment.period))]
     const courseById = new Map(assignedCourses.map((assignment) => [assignment.courseId, assignment]))
@@ -416,8 +418,8 @@ export class PrismaRewardServiceRepository implements RewardServiceRepository {
       include: { teacherProfile: { include: { assignedCourses: true } } },
     })
 
-    const assignedCourseIds = teacher?.teacherProfile?.assignedCourses.map((a) => a.courseId) || []
-    const assignedPeriods = [...new Set(teacher?.teacherProfile?.assignedCourses.map((a) => a.period) || [])]
+    const assignedCourseIds = teacher?.teacherProfile?.assignedCourses?.map((a) => a.courseId) ?? []
+    const assignedPeriods = [...new Set(teacher?.teacherProfile?.assignedCourses?.map((a) => a.period) ?? [])]
 
     const studentProfile = await prisma.studentProfile.findUnique({
       where: { userId: studentReward.studentId },
