@@ -46,7 +46,7 @@ export interface MissionActionInput {
 }
 
 export class GetMissionsUseCase {
-  constructor(private missionServiceRepository: MissionServiceRepository) {}
+  constructor(private readonly missionServiceRepository: MissionServiceRepository) {}
 
   async execute(studentId: string, studentLevel: number): Promise<GetMissionsResult> {
     return this.missionServiceRepository.getMissionsWithStudentStatus(studentId, studentLevel)
@@ -54,7 +54,7 @@ export class GetMissionsUseCase {
 }
 
 export class AcceptMissionUseCase {
-  constructor(private missionServiceRepository: MissionServiceRepository) {}
+  constructor(private readonly missionServiceRepository: MissionServiceRepository) {}
 
   async execute(studentId: string, missionId: string): Promise<AcceptMissionResult> {
     const studentMission = await this.missionServiceRepository.acceptMission(studentId, missionId)
@@ -63,7 +63,7 @@ export class AcceptMissionUseCase {
 }
 
 export class StartMissionUseCase {
-  constructor(private missionServiceRepository: MissionServiceRepository) {}
+  constructor(private readonly missionServiceRepository: MissionServiceRepository) {}
 
   async execute(studentId: string, missionId: string, metadata: string | null): Promise<StartMissionResult> {
     const studentMission = await this.missionServiceRepository.startMission(studentId, missionId, metadata)
@@ -72,7 +72,7 @@ export class StartMissionUseCase {
 }
 
 export class CompleteMissionUseCase {
-  constructor(private missionServiceRepository: MissionServiceRepository) {}
+  constructor(private readonly missionServiceRepository: MissionServiceRepository) {}
 
   async execute(
     studentId: string,
@@ -91,7 +91,7 @@ export class CompleteMissionUseCase {
 }
 
 export class VerifyMissionUseCase {
-  constructor(private missionServiceRepository: MissionServiceRepository) {}
+  constructor(private readonly missionServiceRepository: MissionServiceRepository) {}
 
   async execute(
     mission: { verificationKey: string | null; verificationValue: string | null },
@@ -103,7 +103,7 @@ export class VerifyMissionUseCase {
 }
 
 export class AwardPointsUseCase {
-  constructor(private missionServiceRepository: MissionServiceRepository) {}
+  constructor(private readonly missionServiceRepository: MissionServiceRepository) {}
 
   async execute(userId: string, amount: number, source: string, description: string): Promise<void> {
     return this.missionServiceRepository.awardPoints(userId, amount, source, description)
@@ -111,7 +111,7 @@ export class AwardPointsUseCase {
 }
 
 export class CreateNotificationUseCase {
-  constructor(private missionServiceRepository: MissionServiceRepository) {}
+  constructor(private readonly missionServiceRepository: MissionServiceRepository) {}
 
   async execute(userId: string, title: string, message: string, type: string, link: string): Promise<void> {
     return this.missionServiceRepository.createNotification(userId, title, message, type, link)
