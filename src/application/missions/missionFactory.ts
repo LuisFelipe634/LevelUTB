@@ -6,7 +6,7 @@ let missionServiceRepository: MissionServiceRepository | null = null
 
 function getMissionServiceRepository(): MissionServiceRepository {
   if (!missionServiceRepository) {
-    missionServiceRepository = new PrismaMissionServiceRepository()
+    missionServiceRepository ??= new PrismaMissionServiceRepository()
   }
   return missionServiceRepository
 }
