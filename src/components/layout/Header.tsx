@@ -54,7 +54,6 @@ export function Header({ onToggleSidebar }: { onToggleSidebar: () => void }) {
     () => false
   )
   const [unreadCount, setUnreadCount] = useState(0)
-  const [userName, setUserName] = useState("")
   const [searchTerm, setSearchTerm] = useState("")
   const [searchOpen, setSearchOpen] = useState(false)
   const [dynamicSearchResults, setDynamicSearchResults] = useState<SearchResult[]>([])
@@ -73,7 +72,6 @@ export function Header({ onToggleSidebar }: { onToggleSidebar: () => void }) {
       const response = await fetch("/api/student")
       if (response.ok) {
         const data = await response.json()
-        setUserName(data.user.name)
         setUnreadCount(data.unreadCount)
       }
     } catch (error) {
@@ -144,6 +142,8 @@ export function Header({ onToggleSidebar }: { onToggleSidebar: () => void }) {
   ) : (
     <Moon className="w-5 h-5 text-gray-400" />
   )
+
+  const unreadCountDisplay = unreadCount > 9 ? "9+" : unreadCount
 
   return (
     <header className="h-16 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between gap-4 px-4 sm:px-6">
@@ -225,7 +225,7 @@ export function Header({ onToggleSidebar }: { onToggleSidebar: () => void }) {
           <Bell className="w-5 h-5 text-gray-400" />
           {unreadCount > 0 && (
             <span className="absolute top-1 right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
-              {unreadCount > 9 ? "9+" : unreadCount}
+              {unreadCountDisplay}
             </span>
           )}
         </Link>
