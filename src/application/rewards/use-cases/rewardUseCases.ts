@@ -24,7 +24,7 @@ export interface ReviewRewardResult {
 }
 
 export class GetStudentRewardsUseCase {
-  constructor(private rewardServiceRepository: RewardServiceRepository) {}
+  constructor(private readonly rewardServiceRepository: RewardServiceRepository) {}
 
   async execute(studentId: string, period: string): Promise<GetStudentRewardsResult> {
     return this.rewardServiceRepository.getStudentRewardsWithEligibility(studentId, period)
@@ -32,7 +32,7 @@ export class GetStudentRewardsUseCase {
 }
 
 export class RedeemRewardUseCase {
-  constructor(private rewardServiceRepository: RewardServiceRepository) {}
+  constructor(private readonly rewardServiceRepository: RewardServiceRepository) {}
 
   async execute(studentId: string, input: RedemptionInput): Promise<RedeemRewardResult> {
     const studentReward = await this.rewardServiceRepository.redeemReward(studentId, input)
@@ -41,7 +41,7 @@ export class RedeemRewardUseCase {
 }
 
 export class GetTeacherRewardsUseCase {
-  constructor(private rewardServiceRepository: RewardServiceRepository) {}
+  constructor(private readonly rewardServiceRepository: RewardServiceRepository) {}
 
   async execute(teacherUserId: string): Promise<GetTeacherRewardsResult> {
     return this.rewardServiceRepository.getTeacherRewards(teacherUserId)
@@ -49,7 +49,7 @@ export class GetTeacherRewardsUseCase {
 }
 
 export class ReviewRewardUseCase {
-  constructor(private rewardServiceRepository: RewardServiceRepository) {}
+  constructor(private readonly rewardServiceRepository: RewardServiceRepository) {}
 
   async execute(teacherUserId: string, input: ReviewInput): Promise<ReviewRewardResult> {
     return this.rewardServiceRepository.reviewReward(teacherUserId, input)
