@@ -1,7 +1,7 @@
 import { PrismaRewardServiceRepository } from "@/infrastructure/rewards/repositories/prismaRewardRepository"
 import type { RewardServiceRepository } from "@/domain/rewards/repositories/rewardRepository"
 import { GetStudentRewardsUseCase, RedeemRewardUseCase, GetTeacherRewardsUseCase, ReviewRewardUseCase } from "@/application/rewards/use-cases/rewardUseCases"
-import { getCurrentPeriod } from "@/lib/period"
+export { getCurrentPeriod } from "@/lib/period"
 
 let rewardServiceRepository: RewardServiceRepository | null = null
 
@@ -25,5 +25,3 @@ export function getGetTeacherRewardsUseCase(): GetTeacherRewardsUseCase {
 export function getReviewRewardUseCase(): ReviewRewardUseCase {
   return new ReviewRewardUseCase(getRewardServiceRepository())
 }
-
-export { getCurrentPeriod }
