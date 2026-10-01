@@ -1,5 +1,4 @@
-import type { Reward as PrismaReward, StudentReward as PrismaStudentReward, RewardCategory, PointSource } from "@prisma/client"
-import type { StudentReward as PrismaStudentRewardModel } from "@prisma/client"
+import type { Reward as PrismaReward, StudentReward as PrismaStudentReward, StudentReward as PrismaStudentRewardModel, RewardCategory, PointSource } from "@prisma/client"
 
 export type RewardCategoryEnum = RewardCategory
 export type RewardStatusEnum = PrismaStudentRewardModel["status"]
