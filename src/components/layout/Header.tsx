@@ -55,16 +55,12 @@ export function Header({ onToggleSidebar }: { onToggleSidebar: () => void }) {
   )
   const [unreadCount, setUnreadCount] = useState(0)
   const [userName, setUserName] = useState("")
-  const [userInitials, setUserInitials] = useState("")
   const [searchTerm, setSearchTerm] = useState("")
   const [searchOpen, setSearchOpen] = useState(false)
   const [dynamicSearchResults, setDynamicSearchResults] = useState<SearchResult[]>([])
   const searchRequestRef = useRef(0)
   const { data: session, status } = useSession()
   const profileRole = session?.user?.role
-  const roleLabel = profileRole === "TEACHER" ? "Docente" :
-    profileRole === "ADMIN" ? "Administrador" : "Estudiante"
-  const displayName = userName || session?.user?.name || "Usuario"
   const availableSearchOptions = searchOptions.filter((option) => option.roles.includes(profileRole || "STUDENT"))
   const normalizedSearchTerm = normalizeSearchText(searchTerm.trim())
   const navigationResults = normalizedSearchTerm
@@ -79,13 +75,6 @@ export function Header({ onToggleSidebar }: { onToggleSidebar: () => void }) {
         const data = await response.json()
         setUserName(data.user.name)
         setUnreadCount(data.unreadCount)
-        
-        // Generate initials from name
-        const names = data.user.name.split(" ")
-        const initials = names.length >= 2
-          ? `${names[0][0]}${names[names.length - 1][0]}`
-          : names[0].substring(0, 2)
-        setUserInitials(initials.toUpperCase())
       }
     } catch (error) {
       console.error("Error fetching user data:", error)
@@ -143,6 +132,18 @@ export function Header({ onToggleSidebar }: { onToggleSidebar: () => void }) {
       setSearchOpen(false)
     }
   }
+
+  const themeLabel = mounted
+    ? theme === "dark"
+      ? "Activar modo claro"
+      : "Activar modo oscuro"
+    : "Cambiar tema"
+
+  const themeIcon = mounted && theme === "dark" ? (
+    <Sun className="w-5 h-5 text-gray-400" />
+  ) : (
+    <Moon className="w-5 h-5 text-gray-400" />
+  )
 
   return (
     <header className="h-16 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between gap-4 px-4 sm:px-6">
@@ -209,15 +210,11 @@ export function Header({ onToggleSidebar }: { onToggleSidebar: () => void }) {
         {/* Theme Toggle */}
         <button
           onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-          aria-label={mounted ? (theme === "dark" ? "Activar modo claro" : "Activar modo oscuro") : "Cambiar tema"}
-          title={mounted ? (theme === "dark" ? "Activar modo claro" : "Activar modo oscuro") : "Cambiar tema"}
+          aria-label={themeLabel}
+          title={themeLabel}
           className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
         >
-          {mounted && theme === "dark" ? (
-            <Sun className="w-5 h-5 text-gray-400" />
-          ) : (
-            <Moon className="w-5 h-5 text-gray-400" />
-          )}
+          {themeIcon}
         </button>
 
         {/* Notifications */}
