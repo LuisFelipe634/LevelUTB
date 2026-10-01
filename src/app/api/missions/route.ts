@@ -88,7 +88,7 @@ async function loadMissionContext(
   const { prisma } = await import("@/lib/prisma")
 
   const mission = await prisma.mission.findUnique({ where: { id: missionId as string } })
-  if (!mission || !mission.isActive) {
+  if (!mission?.isActive) {
     return {
       error: NextResponse.json(
         { error: "Misión no encontrada o inactiva" },

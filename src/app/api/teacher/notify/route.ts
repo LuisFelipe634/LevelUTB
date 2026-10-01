@@ -47,7 +47,7 @@ export async function POST(request: Request) {
       },
     })
 
-    if (!student || student.role !== "STUDENT" || !student.studentProfile) {
+    if (!student?.studentProfile || student?.role !== "STUDENT") {
       return NextResponse.json({ error: "Estudiante no encontrado" }, { status: 404 })
     }
 
