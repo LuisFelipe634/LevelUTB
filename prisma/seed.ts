@@ -544,21 +544,30 @@ async function createCatalog() {
 // El codigo no existe en el schema (Badge no lo tiene): se usa solo como llave
 // interna del seed para resolver el awarding de las ya obtenidas.
 async function seedBadges() {
-  const byCode = new Map<string, string>()
-
-  for (const badgeData of BADGES_DATA) {
-    const { code, ...data } = badgeData
-    const badge = await prisma.badge.create({ data })
-    byCode.set(code, badge.id)
-  }
+  // Create all badges in parallel
+  const badgeResults = await Promise.all(
+    BADGES_DATA.map(async (badgeData) => {
+      const { code, ...data } = badgeData
+      const badge = await prisma.badge.create({ data })
+      return { code, id: badge.id }
+    })
+  )
+  const byCode = new Map(badgeResults.map(({ code, id }) => [code, id]))
   console.log('✅ Insignias creadas')
 
+  // Fetch all profiles in parallel
+  const studentCodes = Object.keys(AWARDED_BADGES_BY_STUDENT)
+  const profiles = await Promise.all(
+    studentCodes.map((studentCode) =>
+      prisma.studentProfile.findUnique({ where: { studentCode }, select: { userId: true } })
+    )
+  )
+  const profileMap = new Map(studentCodes.map((code, i) => [code, profiles[i]]))
+
+  // Create all student badges in parallel
   const awardPromises: Promise<unknown>[] = []
   for (const [studentCode, awards] of Object.entries(AWARDED_BADGES_BY_STUDENT)) {
-    const profile = await prisma.studentProfile.findUnique({
-      where: { studentCode },
-      select: { userId: true },
-    })
+    const profile = profileMap.get(studentCode)
     if (!profile) continue
 
     for (const award of awards) {
