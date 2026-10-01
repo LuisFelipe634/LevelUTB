@@ -93,7 +93,7 @@ function MissionProgress({ progress }: Readonly<{ progress: number }>) {
       </div>
       <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
         <div
-          className="h-full bg-gradient-to-r from-blue-500 to-purple-600 rounded-full"
+          className="h-full bg-linear-to-r from-blue-500 to-purple-600 rounded-full"
           style={{ width: `${progress}%` }}
         />
       </div>

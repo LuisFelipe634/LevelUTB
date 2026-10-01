@@ -69,7 +69,7 @@ export default function ProfilePage() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
-      <header className="rounded-2xl bg-gradient-to-r from-blue-600 to-cyan-500 p-6 text-white sm:p-8">
+      <header className="rounded-2xl bg-linear-to-r from-blue-600 to-cyan-500 p-6 text-white sm:p-8">
         <div className="flex flex-wrap items-center gap-4">
           <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/20">
             <UserRound className="h-8 w-8" />

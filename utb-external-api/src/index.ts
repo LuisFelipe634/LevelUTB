@@ -132,8 +132,7 @@ app.get("/academic/students/:studentCode", (request: FastifyRequest<{ Params: { 
   const { studentCode } = request.params;
   const student = fixtures.students.find((s) => s.studentCode === studentCode);
   if (!student) return reply.code(404).send({ error: "Estudiante no encontrado" });
-  const { enrollments: _ignored, ...rest } = student;
-  return rest;
+  return Object.fromEntries(Object.entries(student).filter(([key]) => key !== "enrollments"));
 });
 
 app.get("/academic/students/:studentCode/enrollments", (request: FastifyRequest<{ Params: { studentCode: string }; Querystring: { period?: string } }>, reply: FastifyReply) => {
