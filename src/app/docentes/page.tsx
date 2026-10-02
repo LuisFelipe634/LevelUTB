@@ -10,7 +10,6 @@ import {
   Clock,
   Gift,
   Loader2,
-  Search,
   Users,
 } from "lucide-react"
 
@@ -144,7 +143,6 @@ function TeachersContent() {
   const [reviewedRewards, setReviewedRewards] = useState<ReviewedReward[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
-  const [search, setSearch] = useState("")
   const [expandedStudentId, setExpandedStudentId] = useState<string | null>(null)
   const [reviewLoading, setReviewLoading] = useState<string | null>(null)
   const [reviewComment, setReviewComment] = useState<Record<string, string>>({})
@@ -216,13 +214,7 @@ function TeachersContent() {
     [reviewedRewards, selectedCourse]
   )
 
-  const filteredStudents = useMemo(() => {
-    const term = search.trim().toLowerCase()
-    if (!selectedCourse || !term) return selectedCourse?.students || []
-    return (selectedCourse?.students || []).filter(
-      (s) => s.name.toLowerCase().includes(term) || s.studentCode.toLowerCase().includes(term)
-    )
-  }, [selectedCourse, search])
+  const filteredStudents = selectedCourse?.students || []
 
   const totalStudents = courses.reduce((t, c) => t + c.students.length, 0)
   const meta = SECTION_META[section]
@@ -352,24 +344,15 @@ function TeachersContent() {
       {/* Contenido según sección */}
       {section === "cursos" && (
         <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-gray-700 dark:bg-gray-800">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 p-5 dark:border-gray-700">
-            <div className="relative w-full max-w-sm">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Buscar por nombre o código…"
-                className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2 pl-9 pr-4 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 dark:border-gray-600 dark:bg-gray-700 dark:focus:ring-blue-900"
-              />
-            </div>
+          <div className="flex items-center justify-end border-b border-slate-100 p-5 dark:border-gray-700">
             <span className="text-sm font-semibold text-slate-500 dark:text-gray-400">{filteredStudents.length} estudiantes</span>
           </div>
 
           {filteredStudents.length === 0 ? (
             <div className="p-10 text-center">
               <Users className="mx-auto h-10 w-10 text-gray-300" />
-              <p className="mt-3 font-semibold text-gray-900 dark:text-white">{selectedCourse ? "Sin resultados" : "Sin cursos asignados"}</p>
-              <p className="mt-1 text-sm text-gray-500">{selectedCourse ? "Prueba con otro término de búsqueda o cambia de curso." : "Actualmente no tienes cursos asignados."}</p>
+              <p className="mt-3 font-semibold text-gray-900 dark:text-white">{selectedCourse ? "Sin estudiantes" : "Sin cursos asignados"}</p>
+              <p className="mt-1 text-sm text-gray-500">{selectedCourse ? "Este curso no tiene estudiantes registrados." : "Actualmente no tienes cursos asignados."}</p>
             </div>
           ) : (
             <ul className="divide-y divide-slate-100 dark:divide-gray-700">

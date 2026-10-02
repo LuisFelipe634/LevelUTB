@@ -1,18 +1,10 @@
 import type { BadgeSource } from "@/lib/badgeSource"
-import { PrismaBadgeSource } from "@/lib/prismaBadgeSource"
 import { HttpBadgeSource } from "@/lib/httpBadgeSource"
 
 const STU_NOT_FOUND_PREFIX = "EXTERNAL_BADGES_STUDENT_NOT_FOUND:"
 
-export function isExternalBadgesEnabled(): boolean {
-  return process.env.UNIVERSITY_API_ENABLED === "true" && !!process.env.UNIVERSITY_API_URL
-}
-
 export function getBadgeSource(): BadgeSource {
-  if (isExternalBadgesEnabled()) {
-    return new HttpBadgeSource()
-  }
-  return new PrismaBadgeSource()
+  return new HttpBadgeSource()
 }
 
 // El estudiante no existe en la fuente externa: es un dato faltante, no una

@@ -44,7 +44,7 @@ Plataforma web gamificada para que el estudiante de la Universidad Tecnológica 
 | Rate-limit | En memoria (`Map`): 5/h `request-code` por email+IP, 10/h `verify-code` por email. Single-instance; migrar a Redis en multi-instancia | `src/lib/rateLimit.ts` |
 | Correo | `RESEND_API_KEY` (real) → `SMTP_HOST` (solo log estructurado, nodemailer pendiente) → `console-dev` (solo no-prod). En prod sin proveedor: error 500 controlado | `src/lib/emailProvider.ts`, `.env.example` |
 | Password | Mínimo 8 caracteres, 1 mayúscula y 1 número (`validatePassword`); hash bcrypt 12 en registro | `src/lib/institutionalEmail.ts` |
-| Fuente académica | Desacoplada tras `AcademicSource`: `PrismaAcademicSource` (por defecto) o `HttpAcademicSource` según `UNIVERSITY_API_ENABLED=true` + `UNIVERSITY_API_URL` | `src/lib/getAcademicSource.ts`, `.env.example` |
+| Fuente académica | `HttpAcademicSource` como única fuente; consume `utb-external-api` y su `seed.json` | `src/lib/getAcademicSource.ts`, `.env.example` |
 | Despliegue | `docker compose up --build -d` (3 servicios: `app`, `db` PostgreSQL 16, `external-academic-api`). Alternativa local Node + PostgreSQL vía `./setup.sh` (solo Linux/macOS) | `docker-compose.yml`, `Dockerfile`, `README.md` §Instalación |
 | Runtime | Node.js 20 en imagen `node:20-alpine`. Fuera de Docker: Node.js 18+, `npm run dev/build/start` | `Dockerfile`, `README.md`, `setup.sh` |
 | Datos iniciales | Seed base único `prisma/seed.ts` (ISCO 2019: 10 semestres, 55 cursos, 162 créditos). Destructivo: 22 `deleteMany()`. En Docker solo se ejecuta si la tabla `users` está vacía | `prisma/seed.ts`, `prisma/seed-if-empty.ts` |
@@ -97,7 +97,7 @@ flowchart TB
         PAGES[src/app páginas\n12 rutas]
         API[src/app/api\n16 route handlers]
         LIB[src/lib\ndominio 11 módulos]
-        SRC[AcademicSource\nfactory Prisma o HTTP]
+        SRC[AcademicSource\nsolo HTTP externo]
         COMP[src/components\nAppShell/Sidebar/Header/providers]
     end
     PAGES --> API
@@ -109,7 +109,7 @@ flowchart TB
     MW[src/middleware.ts] --> PAGES
 ```
 
-> `AcademicSource` es el único punto de acceso a datos académicos de `curriculum` y `student`. Con `UNIVERSITY_API_ENABLED=false` opera sobre Prisma y la API externa no participa.
+> `AcademicSource` es el único punto de acceso a datos académicos de `curriculum` y `student`. La fuente única es `utb-external-api`; PostgreSQL conserva únicamente el estado de la aplicación y la gamificación.
 
 ### Nivel 2 — Backend (`src/app/api` + `src/lib`)
 
@@ -122,10 +122,10 @@ flowchart TB
 | Gamificación | `api/missions`, `api/badges` | Misiones manuales/automáticas; panel de insignias base/Plus con catálogo intercambiable (Prisma o API institucional) |
 | Recompensas | `api/rewards`, `api/teacher/rewards` | Catálogo, solicitud `{rewardId, courseId}` (`@@unique[studentId,rewardId,courseId]`, pendiente por curso, débito `CANJE_RECOMPENSA`), aprobación docente |
 | Acompañamiento | `api/teacher`, `api/teacher/notify` | Estudiantes por curso del periodo, revisión de misiones, ruta recomendada + `Activity` |
-| Transversales | `api/notifications`, `api/recommendations`, `api/search` | Notificaciones, motor de recomendaciones, búsqueda sin tildes |
+| Transversales | `api/notifications`, `api/recommendations` | Notificaciones y motor de recomendaciones |
 | Reglas | `lib/academic|recommendations|streak|activity|missionRules|missionVerification.ts` | Cálculos de dominio; `academic` y `APROBAR_CREDITOS_SEMESTRE` excluyen `MANUAL` |
-| Insignias | `lib/badgeSource.ts` (contrato `BadgeSource`), `prismaBadgeSource.ts`, `httpBadgeSource.ts`, `getBadgeSource.ts` | Abstracción del origen del catálogo, con el mismo toggle `UNIVERSITY_API_ENABLED` que la malla. Degrada a Prisma si la externa cae |
-| Fuente académica | `lib/academicSource.ts` (interfaz + tipos), `getAcademicSource.ts` (factory), `prismaAcademicSource.ts`, `httpAcademicSource.ts` | Abstracción del origen de datos de malla y estudiante. `EXTERNAL_API_UNAVAILABLE` → las rutas responden 503, no 500 |
+| Insignias | `lib/badgeSource.ts` (contrato `BadgeSource`), `httpBadgeSource.ts`, `getBadgeSource.ts` | Catálogo servido por la API externa; si cae, la ruta informa el error de disponibilidad |
+| Fuente académica | `lib/academicSource.ts` (interfaz + tipos), `getAcademicSource.ts`, `httpAcademicSource.ts` | Fuente única para malla e historial; `EXTERNAL_API_UNAVAILABLE` → las rutas responden 503, no 500 |
 | Datos | `prisma/schema.prisma` (24 modelos), `seed.ts`, `seed-if-empty.ts`, `scripts/import-proa.ts` | Contrato de datos, datos iniciales ISCO 2019, seed condicional, import CSV → `AllowedStudent` |
 ### Nivel 2 — Frontend (`src/app` + `src/components`)
 
@@ -278,7 +278,7 @@ flowchart LR
 - **UX**: tarjetas `rounded-xl border bg-white dark:bg-gray-800`, acento azul/cian, `next-themes` (default light), responsive móvil/escritorio. `/registro` y `/login` sin `Sidebar/Header` (`AppShell.publicRoutes`).
 - **Calidad de código**: `npm run lint` (ESLint next+TS; 7 warnings preexistentes), `npm run test:unit` (`academic.test.ts`, `missionRules.test.ts`, `institutionalEmail.test.ts`), Prettier para formato.
 - **Fuente académica**: `getAcademicSource()` se resuelve en cada request; `AcademicStudentData.source` (`"prisma" | "http"`) deja auditar de dónde salió la respuesta. Con la API externa caída, `HttpAcademicSource` lanza `EXTERNAL_API_UNAVAILABLE` y `curriculum`/`student` responden `503`, para que el fallo sea distinguible de un error de la app.
-- **Fuente de insignias**: mismo patrón con `getBadgeSource()`, pero la política de fallo es la opuesta: `HttpBadgeSource` lanza y `/api/badges` degrada a `PrismaBadgeSource` en vez de cortar. Motivo: el catálogo local es una fuente completa y válida, así que un 503 sería peor que servirlo. `origin{source,catalogVersion,degraded}` viaja en la respuesta y `/logros` lo muestra como chip. Un 404 externo no degrada (dato faltante, no caída).
+- **Fuente de insignias**: `HttpBadgeSource` consume exclusivamente `utb-external-api`. Si la fuente no responde, `/api/badges` informa indisponibilidad; un 404 externo devuelve catálogo vacío porque el estudiante no está registrado.
 
 ---
 
@@ -316,7 +316,7 @@ flowchart LR
 | Seguridad | OTP: código aleatorio 6 dígitos, SHA-256, 15 min, un solo uso, 5 intentos, 409 si ya registrado, 429 si abusa | Implementado (con deuda: contador `attempts` no cubre todos los fallos, ver §11) |
 | Seguridad | Docente no puede auto-registrarse; `POST /api/admin/teachers` exige `ADMIN` | Implementado (bootstrap ADMIN pendiente) |
 | Disponibilidad degradada | Con `UNIVERSITY_API_ENABLED=true` y la API externa caída → `503` controlado, sin datos parciales | Vigente |
-| Disponibilidad degradada | Con la API de insignias caída → mismo catálogo local + `origin.degraded=true` (no 503: el catálogo local es una fuente completa) | Implementado |
+| Disponibilidad académica | La API externa es obligatoria para malla, historial e insignias; una caída responde con error controlado | Implementado |
 | Disponibilidad degradada | Sin `RESEND_API_KEY`/`SMTP_HOST` en prod → registro responde 500 controlado, no crea cuentas sin verificar | Implementado |
 | Modificabilidad | Nueva regla de misión = nuevo `verificationKey` en `missionVerification.ts` + test en `missionRules.test.ts` | Vigente |
 | Modificabilidad | Nuevo proveedor de correo = una rama en `emailProvider.ts` (firma `sendVerificationCode`) | Implementado |
@@ -386,7 +386,7 @@ flowchart LR
 | `code` vs `named` | `parse(email)`: `code` = local-part numérico 8-10 dígitos (da `studentCode` directo); `named` = nombre (requiere allowlist o código manual) |
 | `MANUAL` / `UNIVERSITY` | `Enrollment.source`: auto-selección del estudiante vs registro oficial; solo `UNIVERSITY` cuenta para métricas verificables |
 | Misión | Reto (`ACADEMICO, PLANIFICACION, MEJORA_CONTINUA, HABITO_ESTUDIO, IMPACTO_SOCIAL`); `StudentMission.status`: `PENDIENTE→EN_PROGRESO→EN_REVISION→COMPLETADA/VERIFICADA/RECHAZADA` |
-| Insignia | Panel base/Plus con `Badge.category`: `PROGRESO, HABITO, COMPETENCIA, IMPACTO_SOCIAL`. El catálogo externo contiene ocho insignias: cuatro categorías base y cuatro variantes Plus; el origen se intercambia entre `PrismaBadgeSource` y `HttpBadgeSource` |
+| Insignia | Panel base/Plus con `Badge.category`: `PROGRESO, HABITO, COMPETENCIA, IMPACTO_SOCIAL`. El catálogo externo contiene ocho insignias: cuatro categorías base y cuatro variantes Plus |
 | Recompensa / canje | `Reward.category`: `EXAMEN, ASISTENCIA, ENTREGA, OTRO`; débito `PointSource.CANJE_RECOMPENSA`; `StudentReward.status`: `SOLICITADO→APROBADO/RECHAZADO→USADO/EXPIRADO`; unicidad por `(studentId, rewardId, courseId)` |
 | Racha | Días consecutivos con `Activity`; `{current, best, activeToday}` |
 | Nivel | 1 Novato (0) · 2 Aprendiz (500) · 3 Explorador (1500) · 4 Avanzado (3000) · 5 Maestro (5000) · 6 Leyenda (8000) |

@@ -2,8 +2,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
 import type { BadgeCatalog } from "@/lib/badgeSource"
-import { PrismaBadgeSource } from "@/lib/prismaBadgeSource"
-import { isExternalBadgesEnabled, isExternalStudentNotFound, getBadgeSource } from "@/lib/getBadgeSource"
+import { isExternalStudentNotFound, getBadgeSource } from "@/lib/getBadgeSource"
 
 type BadgeStats = {
   total: number
@@ -38,10 +37,6 @@ function buildStats(badges: SummarizableBadge[]): BadgeStats {
 async function loadCatalog(studentCode: string): Promise<BadgeCatalog & { degraded: boolean }> {
   const source = getBadgeSource()
 
-  if (!isExternalBadgesEnabled()) {
-    return { ...(await source.getStudentBadges(studentCode)), degraded: false }
-  }
-
   try {
     return { ...(await source.getStudentBadges(studentCode)), degraded: false }
   } catch (error) {
@@ -52,9 +47,8 @@ async function loadCatalog(studentCode: string): Promise<BadgeCatalog & { degrad
       return { badges: [], source: "http", catalogVersion: null, degraded: false }
     }
 
-    console.error("[api/badges] fuente externa de insignias no disponible, degrado a local")
-    const local = await new PrismaBadgeSource().getStudentBadges(studentCode)
-    return { ...local, degraded: true }
+    console.error("[api/badges] fuente externa de insignias no disponible")
+    throw error
   }
 }
 

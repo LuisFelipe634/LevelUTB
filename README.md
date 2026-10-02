@@ -71,7 +71,6 @@ Next.js App Router (src/app/layout.tsx -> AppShell -> Sidebar/Header)
 | `/api/badges` | GET | STUDENT | Catálogo de insignias para el panel de tarjetas base y Plus. El origen se resuelve con `getBadgeSource()` y la respuesta incluye `origin{source, catalogVersion, degraded}`. |
 | `/api/notifications` | GET, PATCH, DELETE | ambos | Listar, marcar leída (`isRead`), borrar. Tipos: `INFO, WARNING, ALERTA_RIESGO, LOGRO_OBTENIDO, MISION_DISPONIBLE, RECORDATORIO, SOLICITUD_RECOMPENSA`. |
 | `/api/recommendations` | GET, PATCH | STUDENT | GET genera bajo demanda con `generateRecommendations()`. PATCH aceptar/descartar (`isAccepted`, `isRead`). |
-| `/api/search` | GET `?q=` | ambos | Búsqueda global (cursos, misiones, insignias) insensible a tildes. |
 | `/api/teacher` | GET, PATCH | TEACHER | GET cuatro cursos demo asignados (`TeacherCourse` por `periodo YYYY-1/2`) + estudiantes con promedio/créditos/racha/riesgo e insignias con contador de progreso. PATCH revisar misión (aprobar/devolver con `reviewComment`, otorga puntos). |
 | `/api/teacher/rewards` | GET, PATCH | TEACHER | GET solicitudes de canje de sus cursos + historial. PATCH aprobar/rechazar (`APROBADO/RECHAZADO`, `reviewNote`). |
 | `/api/teacher/notify` | POST | TEACHER | `{ studentId, message/cursos }` envía notificación de ruta recomendada y guarda `Activity{RUTA_RECOMENDADA_DOCENTE}`. |
@@ -89,7 +88,7 @@ Detalle de flujos y cómo añadir endpoints: ver `src/app/api/README.md`.
 - **Dashboard**: puntos, nivel, racha, misiones activas, insignias recientes, notificaciones y alertas.
 - **Malla interactiva**: por semestre con estado por prerrequisitos, créditos aprobados vs totales y selección de materias del periodo.
 - **Misiones**: tipos `ACADEMICO, PLANIFICACION, MEJORA_CONTINUA, HABITO_ESTUDIO, IMPACTO_SOCIAL`. Manuales con evidencia + revisión docente, o automáticas (`verificationKey/Value`: créditos, promedio, racha) vía `missionVerification.ts`. Estados: `PENDIENTE → EN_PROGRESO → EN_REVISION → COMPLETADA/VERIFICADA/RECHAZADA`.
-- **Insignias**: panel visual con tarjetas de Core Skills, Power Skills, Líderes UTB y Conexiones Profesionales, incluyendo sus variantes Plus. El catálogo puede venir de la API externa o del catálogo local y muestra su origen.
+- **Insignias**: panel visual con tarjetas de Core Skills, Power Skills, Líderes UTB y Conexiones Profesionales, incluyendo sus variantes Plus. El catálogo se sirve desde la API externa.
 - **Recompensas**: canje de puntos por bonificaciones (`EXAMEN, ASISTENCIA, ENTREGA, OTRO`) atadas a un `courseId` del periodo actual. Flujo `SOLICITADO → APROBADO/RECHAZADO → USADO/EXPIRADO`. Página `/recompensas`.
 - **Recomendaciones**: cuello de botella, reprobadas, electivas, ruta del próximo semestre, promedio < 3.5, rellenar créditos.
 - **Estadísticas**: créditos, promedio, nivel, tendencia y distribución por semestre.
@@ -169,7 +168,7 @@ LevelUTB/
       api/                   # Backend (ver docs/arc42.md §5)
     components/
       layout/AppShell.tsx    # Oculta Sidebar/Header en /login
-      layout/Sidebar.tsx / layout/Header.tsx  # Nav por rol + búsqueda global
+      layout/Sidebar.tsx / layout/Header.tsx  # Navegación por rol, logo y acciones
       providers/SessionProvider.tsx / providers/ThemeProvider.tsx
     lib/
       auth.ts / session.ts / prisma.ts
@@ -186,156 +185,143 @@ Estructura detallada: `docs/arc42.md` (§5 vista de bloques, §7 despliegue).
 
 ## Instalación
 
-### Opción A: Docker (recomendado, multiplataforma)
+### Instalación recomendada: Docker Desktop
 
-Único prerrequisito: **Docker Desktop** (Windows, macOS o Linux). No necesitas Node, PostgreSQL ni npm en el host — la imagen `Dockerfile` usa `node:20-alpine`.
+Docker es el único método soportado para preparar el proyecto de forma igual en
+Windows, macOS y Linux. No necesitas instalar Node.js, npm ni PostgreSQL en el
+equipo anfitrión.
 
-#### Windows, macOS o Linux con Docker Desktop
+#### 1. Instalar requisitos
 
-```powershell
+1. Instala Docker Desktop desde <https://www.docker.com/products/docker-desktop/>.
+2. Inicia Docker Desktop y espera a que indique que el motor está ejecutándose.
+3. Instala Git desde <https://git-scm.com/downloads>.
+4. Comprueba las versiones:
+
+```bash
+docker --version
+docker compose version
+git --version
+```
+
+#### 2. Descargar el proyecto
+
+Sustituye `<url-del-repositorio>` por la URL real del repositorio:
+
+```bash
 git clone <url-del-repositorio>
 cd LevelUTB
-Copy-Item .env.example .env       # PowerShell; en Bash usa: cp .env.example .env
+```
+
+#### 3. Crear la configuración local
+
+En Windows PowerShell:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+En macOS o Linux:
+
+```bash
+cp .env.example .env
+```
+
+Abre `.env` y cambia como mínimo `NEXTAUTH_SECRET` por una cadena larga y
+privada. Conserva estos valores para ejecutar la configuración incluida:
+
+```env
+POSTGRES_DB="levelutb"
+POSTGRES_USER="postgres"
+POSTGRES_PASSWORD="postgres"
+UNIVERSITY_API_URL="http://external-academic-api:3001"
+UNIVERSITY_API_KEY="dev-key"
+UNIVERSITY_API_ENABLED="true"
+```
+
+No subas `.env` al repositorio. Contiene credenciales locales y secretos.
+
+#### 4. Construir y lanzar
+
+Desde la raíz del proyecto ejecuta:
+
+```bash
 docker compose up --build -d
 ```
 
-Abre `http://localhost:3000`. El primer arranque crea el esquema, siembra la
-base solo si está vacía y levanta la API externa simulada en `http://localhost:3001`.
+El arranque realiza este proceso automáticamente:
 
-Para ver el estado o los logs:
+1. Inicia PostgreSQL y espera a que esté saludable.
+2. Inicia `external-academic-api` con `utb-external-api/src/fixtures/seed.json`.
+3. Ejecuta `prisma db push` para preparar el esquema de soporte.
+4. Ejecuta `db:seed-if-empty` para crear usuarios, misiones, recompensas y
+  configuración de gamificación sin borrar datos existentes.
+5. Inicia Next.js.
 
-```powershell
+La malla, los cursos y los historiales académicos se leen exclusivamente desde
+la API externa. PostgreSQL se mantiene para autenticación, perfiles locales,
+gamificación, notificaciones y solicitudes de recompensa.
+
+#### 5. Comprobar el lanzamiento
+
+```bash
 docker compose ps
-docker compose logs -f app
+docker compose logs --tail=50 app
+docker compose logs --tail=50 external-academic-api
 ```
 
-Para detener los servicios sin borrar datos:
+Debes ver `healthy` en `db`, `Ready` en `app` y `Server listening` en la API
+externa. Abre <http://localhost:3000> y entra con una credencial de prueba.
 
-```powershell
-docker compose down
+Servicios disponibles:
+
+| Servicio | Dirección | Uso |
+|---|---|---|
+| Aplicación | <http://localhost:3000> | Interfaz LevelUTB |
+| API académica | <http://localhost:3001> | Seed externo y datos académicos |
+| PostgreSQL | `localhost:5432` | Estado local de autenticación y gamificación |
+
+#### 6. Reiniciar sin perder datos
+
+```bash
+docker compose restart
 ```
 
-Para reiniciar la base demo desde cero:
+Después de cambiar `.env`, recrea los servicios para que reciban las nuevas
+variables:
 
-```powershell
+```bash
+docker compose up -d --force-recreate
+```
+
+#### 7. Sembrar nuevamente la información demo
+
+El seed destructivo reemplaza los datos de soporte y gamificación:
+
+```bash
+docker compose exec -T app npm run db:seed
+```
+
+La API académica no requiere un comando de seed separado: carga su información
+automáticamente desde `utb-external-api/src/fixtures/seed.json` al iniciar.
+
+#### 8. Reinicializar completamente el entorno
+
+Esto elimina el volumen PostgreSQL y todos los datos locales. Úsalo solo en una
+instalación de desarrollo:
+
+```bash
 docker compose down -v
 docker compose up --build -d
 ```
 
-El último comando elimina el volumen de PostgreSQL y todos sus datos.
-
-`docker compose up --build` ejecuta en el contenedor del `app`:
-`prisma db push` (crea el schema) → `db:seed-if-empty` (siembra datos solo si la base está vacía) → `npm run dev`.
-
-| Servicio | Puerto | Descripción |
-|---|---|---|
-| `app` | 3000 | Next.js — http://localhost:3000 |
-| `db` | 5432 | PostgreSQL 16 (volumen `levelutb_pgdata`) |
-| `external-academic-api` | 3001 | API académica e insignias simuladas |
-
-Comandos útiles:
+#### 9. Detener el proyecto
 
 ```bash
-docker compose ps        # estado de los servicios
-docker compose logs -f app
-docker compose down      # parar (conserva el volumen de datos)
-docker compose down -v   # parar y BORRAR la base de datos
+docker compose down
 ```
 
-#### Instalación local con `setup.sh` (Linux/macOS)
-
-`setup.sh` instala Node.js LTS mediante nvm, PostgreSQL, dependencias npm,
-genera `.env` si no existe, crea la base de datos, ejecuta `db:generate`,
-`db:push` y el seed demo. El seed es destructivo.
-
-```bash
-git clone <url-del-repositorio>
-cd LevelUTB
-chmod +x setup.sh
-./setup.sh
-npm run dev
-```
-
-Abre `http://localhost:3000`. Para instalar dependencias sin crear o modificar
-la base de datos:
-
-```bash
-./setup.sh --skip-db
-```
-
-> En Windows no se ejecuta `setup.sh` directamente; usa Docker Desktop y los
-> pasos anteriores de PowerShell.
-
-**El seed automático no destruye datos.** `prisma/seed.ts` hace `deleteMany()`, por eso el arranque usa `prisma/seed-if-empty.ts`, que siembra únicamente si la tabla `users` está vacía. Si ya trabajaste con datos reales, tu base se conserva. Para sembrar a mano (destructivo):
-
-```bash
-npm run db:seed               # siembra desde cero (borra lo anterior)
-docker compose exec -T app npm run db:seed
-```
-
-### Opción B: Local con Node + PostgreSQL
-
-> Requiere Node.js 18+ y PostgreSQL en el host. No necesitas PostgreSQL si vas por la Opción A.
-
-#### Prerrequisitos
-
-- Node.js 18+
-- PostgreSQL
-- npm
-- Bash (Linux/macOS; `setup.sh` no corre en Windows)
-
-#### Método rápido (solo Linux/macOS)
-
-```bash
-./setup.sh            # Completa: Node, Postgres, .env, dependencias, db:push, seed
-./setup.sh --skip-db  # Solo npm install, sin tocar Postgres
-```
-
-Detecta Debian/Fedora/Arch/macOS, instala Node >=18 vía nvm, crea usuario/DB, genera `.env` desde `.env.example`, hace `db:generate + db:push + db:seed`.
-
-> Si ya tienes PostgreSQL 18 corriendo en el puerto 5432, choca con el puerto publicado del contenedor. Detén el servicio local o cambia el puerto en `docker-compose.yml`.
-
-#### Método manual
-
-1. Clonar e instalar:
-
-```bash
-git clone <url-del-repositorio>
-cd LevelUTB
-npm install
-```
-
-2. Variables de entorno (`.env`, plantilla completa en `.env.example`):
-
-```bash
-cp .env.example .env     # en Windows: copy .env.example .env
-```
-
-```env
-DATABASE_URL="postgresql://postgres:postgres@localhost:5432/levelutb?schema=public"
-NEXTAUTH_SECRET="cambia-este-secreto-por-uno-seguro"
-NEXTAUTH_URL="http://localhost:3000"
-UNIVERSITY_API_URL="http://localhost:3001"
-UNIVERSITY_API_KEY="dev-key"
-UNIVERSITY_API_ENABLED="false"
-```
-
-Con `UNIVERSITY_API_ENABLED="true"` el curriculum y el perfil del estudiante leen de la API externa en vez de Prisma directo.
-
-3. DB + seed:
-
-```bash
-npm run db:generate
-npm run db:push
-npm run db:seed        # seed base (tsx prisma/seed.ts)
-```
-
-4. Dev:
-
-```bash
-npm run dev
-# http://localhost:3000  -> redirige a /dashboard (o /login sin sesión)
-```
+Este comando detiene los contenedores y conserva el volumen de datos.
 
 ---
 
@@ -363,7 +349,7 @@ docker compose down -v    # Para y borra la base de datos
 ./setup.sh --skip-db    # Solo dependencias npm
 
 npm run dev              # Dev con hot reload
-nnnpm run build            # Build producción
+npm run build              # Build producción
 npm run start            # Servidor producción
 
 npm run db:generate      # Generar cliente Prisma
@@ -372,7 +358,7 @@ npm run db:seed          # Seed base DESTRUCTIVO (tsx prisma/seed.ts)
 npm run db:seed-if-empty # Seed solo si la tabla users está vacía (no destructivo)
 npm run db:studio        # Prisma Studio GUI
 
-nnnpm run lint             # ESLint (next + TS)
+npm run lint               # ESLint (next + TS)
 nnnpm run test:unit        # Tests unitarios (tsx --test src/lib/**/*.test.ts)
 ```
 
@@ -463,17 +449,12 @@ que se elige con `UNIVERSITY_API_ENABLED`, igual que la malla con `AcademicSourc
 
 | Config | `BadgeSource` | Resultado en `/logros` |
 |---|---|---|
-| `UNIVERSITY_API_ENABLED="false"` | `PrismaBadgeSource` | Catálogo del seed (`BADGES_DATA` en `prisma/seed.ts`) |
 | `UNIVERSITY_API_ENABLED="true"` | `HttpBadgeSource` | Catálogo de la universidad vía `GET /academic/students/:code/badges` |
 
-**No fusionan: se reemplazan.** Con la API activa no se ven las insignias del
-seed, y viceversa.
-
-Si la API externa no responde, `HttpBadgeSource` lanza `ExternalApiUnavailableError`
-y la ruta **degrada al catálogo local** con `origin.degraded=true`, en vez de
-cortar con 503 como hacen `curriculum`/`student`. Un 404 externo (el estudiante no
-está registrado allá) devuelve catálogo vacío sin degradar: es un dato faltante,
-no una caída del servicio.
+La API externa es la única fuente de insignias. Si no responde, la ruta informa
+un error de disponibilidad; no se mezclan ni se sustituyen datos con un catálogo
+local. Un 404 externo (el estudiante no está registrado allá) devuelve catálogo
+vacío porque es un dato faltante, no una caída del servicio.
 
 ### API de insignias de ejemplo
 

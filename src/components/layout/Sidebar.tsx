@@ -96,10 +96,11 @@ function SidebarContent({ isOpen, onClose }: Readonly<{ isOpen: boolean; onClose
       <div className="px-7 pb-2 pt-3">
             <div className="flex flex-col items-center gap-2">
           <Image
-            src="/utb-logotipo.png"
+            src="/utblogotipo.png"
             alt="UTB Logo"
             width={96}
-            height={40}
+            height={50}
+            loading="eager"
             className="h-auto w-24 object-contain dark:drop-shadow-[0_0_8px_rgba(255,255,255,0.4)]"
           />
           <span className="text-center text-[11px] font-medium text-blue-600 dark:text-blue-300">
