@@ -19,7 +19,6 @@ Sistema web donde el estudiante visualiza su progreso en la malla curricular, ga
 | Base de datos | PostgreSQL |
 | ORM | Prisma 7.9.1 (`prisma/schema.prisma`, `prisma.config.ts`, `src/lib/prisma.ts` con `@prisma/adapter-pg`) |
 | Autenticación | NextAuth.js 5 beta (JWT + Credentials, `src/lib/auth.ts`) |
-| Iconos | lucide-react |
 | Temas | next-themes (claro/oscuro, `src/components/providers/ThemeProvider.tsx`) |
 | Sesión cliente | `src/components/providers/SessionProvider.tsx` |
 | Utilidades | `src/lib/period.ts` (períodos académicos centralizados) |
@@ -124,7 +123,7 @@ Detalle de flujos y cómo añadir endpoints: ver `src/app/api/README.md`.
 
 ### Insignias (`Badge.category`)
 
-`PROGRESO, RENDIMIENTO, HABITO, COMPETENCIA, IMPACTO_SOCIAL`.
+`Insignias obtenidas por la participacion de talleres y actividades bajo la RUTA DE AUTONOMIA Y EXITO PROFESIONAL`.
 
 ### Misiones (`Mission.type`)
 
@@ -177,7 +176,7 @@ LevelUTB/
       period.ts              # Utilidad centralizada de períodos académicos
 ```
 
-Estructura detallada: `docs/arc42.md` (§5 vista de bloques, §7 despliegue).
+Estructura detallada: `docs/arc42.md` (5 vista de bloques, 7 despliegue).
 
 ---
 
@@ -342,7 +341,7 @@ docker compose exec app npm run lint              # Lint dentro del contenedor
 
 ---
 
-## Modelos de Base de Datos (2
+## Modelos de Base de Datos 
 
 ## Mejoras Recientes (Limpieza y Refactor)
 
@@ -414,7 +413,7 @@ docker compose exec app npm run lint              # Lint dentro del contenedor
 
 ## Seguridad
 
-- Solo `@utb.edu.co` (`src/lib/auth.ts` authorize), bcrypt, JWT.
+- (`src/lib/auth.ts` authorize), bcrypt, JWT.
 - `src/middleware.ts` protege páginas; cada API revalida con `requireRole` (no confiar solo en el middleware, cuyo `matcher` excluye `/api`).
 - Validación de entrada y 401/403/404 JSON en todos los endpoints.
 
