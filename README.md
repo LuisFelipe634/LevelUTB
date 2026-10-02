@@ -194,20 +194,13 @@ equipo anfitrión.
 1. Instala Docker Desktop desde <https://www.docker.com/products/docker-desktop/>.
 2. Inicia Docker Desktop y espera a que indique que el motor está ejecutándose.
 3. Instala Git desde <https://git-scm.com/downloads>.
-4. Comprueba las versiones:
-
-```bash
-docker --version
-docker compose version
-git --version
-```
 
 #### 2. Descargar el proyecto
 
-Sustituye `<url-del-repositorio>` por la URL real del repositorio:
+Clona el repositorio usando la url: 
 
 ```bash
-git clone <url-del-repositorio>
+git clone <https://github.com/LuisFelipe634/LevelUTB>
 cd LevelUTB
 ```
 
@@ -226,18 +219,16 @@ cp .env.example .env
 ```
 
 Abre `.env` y cambia como mínimo `NEXTAUTH_SECRET` por una cadena larga y
-privada. Conserva estos valores para ejecutar la configuración incluida:
+reemplaza la contraseña del postgres a la establecida por usted. Conserva estos valores para ejecutar la configuración incluida:
 
 ```env
 POSTGRES_DB="levelutb"
 POSTGRES_USER="postgres"
-POSTGRES_PASSWORD="postgres"
+POSTGRES_PASSWORD="tu-clave-postgres"
 UNIVERSITY_API_URL="http://external-academic-api:3001"
 UNIVERSITY_API_KEY="dev-key"
 UNIVERSITY_API_ENABLED="true"
 ```
-
-No subas `.env` al repositorio. Contiene credenciales locales y secretos.
 
 #### 4. Construir y lanzar
 
@@ -459,14 +450,6 @@ servicio institucional real solo cambia la URL en `UNIVERSITY_API_URL` y el
 consumidor no se toca. `BadgeCategory` de la API externa es el mismo enum del
 modelo local (`PROGRESO`, `RENDIMIENTO`, `HABITO`, `COMPETENCIA`, `IMPACTO_SOCIAL`),
 porque `/logros` filtra por esa taxonomía.
-
----
-
-## Integraciones Futuras
-
-- **PROA**: mallas académicas.
-- **Banner**: registro académico oficial.
-- **API institucional de insignias**: sustituir la simulación de `utb-external-api`.
 
 ---
 
