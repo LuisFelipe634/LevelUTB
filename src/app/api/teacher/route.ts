@@ -241,10 +241,22 @@ export async function PATCH(request: Request) {
   }
 
   try {
-    const body = await request.json()
-    const { studentMissionId, decision, comment } = body
-    if (!studentMissionId || !["approve", "reject"].includes(decision)) {
+    let body: unknown
+    try {
+      body = await request.json()
+    } catch {
+      return NextResponse.json({ error: "Cuerpo JSON inválido" }, { status: 400 })
+    }
+    const { studentMissionId, decision, comment } = body as {
+      studentMissionId?: unknown
+      decision?: unknown
+      comment?: unknown
+    }
+    if (typeof studentMissionId !== "string" || !["approve", "reject"].includes(decision as string)) {
       return NextResponse.json({ error: "Decisión de revisión inválida" }, { status: 400 })
+    }
+    if (typeof comment === "string" && comment.length > 2000) {
+      return NextResponse.json({ error: "El comentario no puede superar 2000 caracteres" }, { status: 400 })
     }
 
     const studentMission = await prisma.studentMission.findUnique({
@@ -253,6 +265,39 @@ export async function PATCH(request: Request) {
     })
     if (studentMission?.status !== "EN_REVISION") {
       return NextResponse.json({ error: "La misión no está pendiente de revisión" }, { status: 400 })
+    }
+
+    // Solo el docente asignado al curso de la misión (o a su estudiante) puede revisarla.
+    const teacherProfile = await prisma.teacherProfile.findUnique({
+      where: { userId: teacherUserId },
+      include: { assignedCourses: { select: { courseId: true } } },
+    })
+    const assignedCourseIds = new Set(
+      (teacherProfile?.assignedCourses ?? []).map((a) => a.courseId)
+    )
+    const missionCourseId = studentMission.mission.courseId
+    if (missionCourseId && !assignedCourseIds.has(missionCourseId)) {
+      // Fallback: verificar matrícula vigente del estudiante en algún curso del docente.
+      const studentProfile = await prisma.studentProfile.findUnique({
+        where: { userId: studentMission.studentId },
+        select: { id: true },
+      })
+      const sharesCourse = studentProfile
+        ? await prisma.enrollment.findFirst({
+            where: {
+              studentId: studentProfile.id,
+              courseId: { in: [...assignedCourseIds] },
+              status: { in: ["CURSANDO", "INSCRITO"] },
+            },
+            select: { id: true },
+          })
+        : null
+      if (!sharesCourse) {
+        return NextResponse.json(
+          { error: "No tienes asignado el curso de esta misión" },
+          { status: 403 }
+        )
+      }
     }
 
     const approved = decision === "approve"

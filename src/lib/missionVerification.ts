@@ -290,7 +290,7 @@ export async function verifyMission(
   const key = mission.verificationKey
   const handler = key ? verifiers[key] : undefined
   if (!handler) {
-    return passed("Cumplimiento registrado automáticamente.")
+    return failed("Regla de verificación no reconocida: se requiere revisión docente.")
   }
 
   const approvedByCourse = buildApprovedCredits(profile.enrollments)

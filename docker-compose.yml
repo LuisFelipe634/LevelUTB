@@ -25,6 +25,11 @@ services:
     environment:
       PORT: "3001"
       API_KEY: "${UNIVERSITY_API_KEY:-dev-key}"
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('net').createConnection({port:3001,host:'127.0.0.1'},()=>process.exit(0)).on('error',()=>process.exit(1)).setTimeout(2000)\" || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
     restart: unless-stopped
 
   app:
@@ -37,7 +42,7 @@ services:
       db:
         condition: service_healthy
       external-academic-api:
-        condition: service_started
+        condition: service_healthy
     env_file: .env
     environment:
       DATABASE_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-levelutb}?schema=public"
@@ -45,6 +50,13 @@ services:
       UNIVERSITY_API_ENABLED: "true"
       NEXTAUTH_URL: "http://localhost:3000"
     command: sh -c "npm run db:push && npm run db:seed-if-empty && npm run dev"
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('net').createConnection({port:3000,host:'127.0.0.1'},()=>process.exit(0)).on('error',()=>process.exit(1)).setTimeout(2000)\" || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
 
 volumes:
   pgdata: {}

@@ -445,7 +445,7 @@ model Recommendation {
 
 enum RecommendationType {
   CURSO_SUGERIDO
-  RUTA_ACademica
+  RUTA_ACADEMICA
   ALERTA_ATRASO
   MEJORA_PROMEDIO
   ELECTIVA_RECOMENDADA

@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc && npm run copy:fixtures",
-    "copy:fixtures": "node -e \"const fs=require('fs');const path=require('path');fs.mkdirSync('dist/fixtures',{recursive:true});fs.copyFileSync('src/fixtures/seed.json','dist/fixtures/seed.json');console.log('fixtures copied')\"",
+    "copy:fixtures": "node -e \"const fs=require('fs');fs.mkdirSync('dist/fixtures',{recursive:true});fs.copyFileSync('src/fixtures/seed.json','dist/fixtures/seed.json');fs.copyFileSync('src/fixtures/badges.json','dist/fixtures/badges.json');console.log('fixtures copied')\"",
     "start": "node dist/index.js"
   },
   "dependencies": {

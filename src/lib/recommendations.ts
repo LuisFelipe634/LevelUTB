@@ -3,7 +3,7 @@ import { getCreditLimit, getCurrentSemester } from "@/lib/academic"
 import { getCurrentPeriod } from "@/lib/period"
 
 type RecommendationItem = {
-  type: "CURSO_SUGERIDO" | "ALERTA_ATRASO" | "ELECTIVA_RECOMENDADA" | "MEJORA_PROMEDIO" | "RUTA_ACademica" | "RELLENAR_CREDITOS"
+  type: "CURSO_SUGERIDO" | "ALERTA_ATRASO" | "ELECTIVA_RECOMENDADA" | "MEJORA_PROMEDIO" | "RUTA_ACADEMICA" | "RELLENAR_CREDITOS"
   title: string
   description: string
   priority: number
@@ -40,8 +40,12 @@ async function fetchStudentData(studentProfileId: string) {
     },
   })
 
+  if (!profile) {
+    throw new Error("STUDENT_PROFILE_NOT_FOUND")
+  }
+
   const allCourses = await prisma.course.findMany({
-    where: { programId: profile!.programId, isActive: true },
+    where: { programId: profile.programId, isActive: true },
     include: {
       semester: true,
       prerequisites: { include: { prerequisite: true } },
@@ -49,7 +53,7 @@ async function fetchStudentData(studentProfileId: string) {
     },
   })
 
-  return { profile: profile!, allCourses }
+  return { profile, allCourses }
 }
 
 function getCourseIdFromHistory(
@@ -174,7 +178,7 @@ function addNextSemesterRecommendations(unlockedCourses: ReturnType<typeof findU
   if (nextSemesterCourses.length > 0) {
     const names = nextSemesterCourses.slice(0, 4).map((c) => c.name).join(", ")
     recommendations.push({
-      type: "RUTA_ACademica",
+      type: "RUTA_ACADEMICA",
       title: "🗺️ Materias sugeridas para el próximo semestre",
       description: `Basado en tu progreso, puedes inscribir: ${names}.`,
       priority: 2,
@@ -289,7 +293,6 @@ function generateAllRecommendations(
  */
 export async function generateRecommendations(studentProfileId: string): Promise<void> {
   const { profile, allCourses } = await fetchStudentData(studentProfileId)
-  if (!profile) return
 
   const status = buildCourseStatus(profile, allCourses)
   const unlockedCourses = findUnlockedCourses(allCourses, status, profile.currentSemester)

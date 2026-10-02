@@ -458,7 +458,7 @@ async function main() {
   await seedSecondStudentHistory(sara.profileId, program.id)
 
   const angela = await createStudent(program.id, secondPasswordHash, {
-    email: 'juanito@utb.edu.co',
+    email: 'demo3@utb.edu.co',
     name: 'Angela Lemus',
     studentCode: '2021123456',
     currentSemester: ANGELA_CURRENT_SEMESTER,
@@ -519,9 +519,12 @@ async function cleanDatabase() {
   await prisma.riskAlert.deleteMany()
   await prisma.enrollment.deleteMany()
   await prisma.academicRecord.deleteMany()
+  await prisma.teacherCourse.deleteMany()
   await prisma.studentProfile.deleteMany()
   await prisma.teacherProfile.deleteMany()
   await prisma.user.deleteMany()
+  await prisma.emailVerificationToken.deleteMany()
+  await prisma.allowedStudent.deleteMany()
   await prisma.prerequisite.deleteMany()
   await prisma.mission.deleteMany()
   await prisma.badge.deleteMany()

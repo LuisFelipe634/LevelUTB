@@ -36,8 +36,16 @@ export async function PATCH(request: Request) {
     }
 
     const userId = session.user.id
-    const body = await request.json()
-    const { notificationId, isRead } = body
+    let body: unknown
+    try {
+      body = await request.json()
+    } catch {
+      return NextResponse.json(
+        { error: "Cuerpo JSON inválido" },
+        { status: 400 }
+      )
+    }
+    const { notificationId, isRead } = body as { notificationId?: unknown; isRead?: unknown }
 
     if (!notificationId || typeof notificationId !== "string") {
       return NextResponse.json(
@@ -46,11 +54,19 @@ export async function PATCH(request: Request) {
       )
     }
 
+    const existing = await prisma.notification.findFirst({
+      where: { id: notificationId, userId },
+      select: { id: true },
+    })
+    if (!existing) {
+      return NextResponse.json(
+        { error: "Notificación no encontrada" },
+        { status: 404 }
+      )
+    }
+
     const notification = await prisma.notification.update({
-      where: {
-        id: notificationId,
-        userId: userId
-      },
+      where: { id: notificationId },
       data: { isRead: typeof isRead === "boolean" ? isRead : true }
     })
 
@@ -83,7 +99,7 @@ export async function DELETE(request: Request) {
       )
     }
 
-    await prisma.notification.delete({
+    await prisma.notification.deleteMany({
       where: {
         id: notificationId,
         userId: userId

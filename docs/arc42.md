@@ -45,8 +45,8 @@ Plataforma web gamificada para que el estudiante de la Universidad Tecnológica 
 | Correo | `RESEND_API_KEY` (real) → `SMTP_HOST` (solo log estructurado, nodemailer pendiente) → `console-dev` (solo no-prod). En prod sin proveedor: error 500 controlado | `src/lib/emailProvider.ts`, `.env.example` |
 | Password | Mínimo 8 caracteres, 1 mayúscula y 1 número (`validatePassword`); hash bcrypt 12 en registro | `src/lib/institutionalEmail.ts` |
 | Fuente académica | `HttpAcademicSource` como única fuente; consume `utb-external-api` y su `seed.json` | `src/lib/getAcademicSource.ts`, `.env.example` |
-| Despliegue | `docker compose up --build -d` (3 servicios: `app`, `db` PostgreSQL 16, `external-academic-api`). Alternativa local Node + PostgreSQL vía `./setup.sh` (solo Linux/macOS) | `docker-compose.yml`, `Dockerfile`, `README.md` §Instalación |
-| Runtime | Node.js 20 en imagen `node:20-alpine`. Fuera de Docker: Node.js 18+, `npm run dev/build/start` | `Dockerfile`, `README.md`, `setup.sh` |
+| Despliegue | `docker compose up --build -d` (3 servicios: `app`, `db` PostgreSQL 16, `external-academic-api`). Docker Compose es el único flujo soportado | `docker-compose.yml`, `Dockerfile`, `README.md` §Instalación |
+| Runtime | Node.js 20 en imagen `node:20-alpine`; todos los servicios se ejecutan con Docker Compose | `Dockerfile`, `docker-compose.yml`, `README.md` |
 | Datos iniciales | Seed base único `prisma/seed.ts` (ISCO 2019: 10 semestres, 55 cursos, 162 créditos). Destructivo: 22 `deleteMany()`. En Docker solo se ejecuta si la tabla `users` está vacía | `prisma/seed.ts`, `prisma/seed-if-empty.ts` |
 | Import académico | CSV PROA/Banner → `AllowedStudent` (`email,studentCode,programCode,admissionYear,fullName?`) | `scripts/import-proa.ts`, `npm run db:import-proa` |
 
@@ -257,10 +257,10 @@ flowchart LR
 | Orden de arranque | `app` espera `db` healthy. Dentro: `prisma db push` → `db:seed-if-empty` → `npm run dev` |
 | Seed en arranque | `prisma/seed-if-empty.ts` siembra **solo si `users` está vacía**; `seed.ts` es destructivo (22 `deleteMany()`). `SEED_IF_EMPTY=false` lo desactiva. Así un equipo nuevo levanta con datos y nadie pierde los suyos en un `up` posterior |
 | Config | `.env` (plantilla `.env.example`): `DATABASE_URL`, `NEXTAUTH_SECRET/URL`, `RESEND_API_KEY` o `SMTP_HOST/PORT/USER/PASS`, `EMAIL_FROM`, `ADMIN_EMAIL`, `UNIVERSITY_API_URL/KEY/ENABLED` |
-| DB (fuera de Docker) | `db:generate` → `db:push` → `db:seed` → (`db:import-proa ./proa.csv`, `db:studio`) |
-| Instalación nueva | Docker: `cp .env.example .env` + `docker compose up --build -d`. Local: `./setup.sh` (Node vía nvm, Postgres, `.env`, push+seed) o `--skip-db`; solo Linux/macOS. `setup.sh` aún no genera las vars de correo/ADMIN (ver §11) |
+| Operaciones de DB | `docker compose exec app npm run db:push`, `db:seed` o `db:studio`; todos los comandos se ejecutan dentro del contenedor |
+| Instalación nueva | Docker: `cp .env.example .env` + `docker compose up --build -d`; no se requiere Node.js ni PostgreSQL en el host |
 | Choke point despliegue | Un PostgreSQL local en el 5432 choca con el puerto publicado del contenedor. Detenerlo o remapear el puerto en `docker-compose.yml` |
-| Credenciales seed | `demo@utb.edu.co/demo123` (Juan Pérez), `demo2@utb.edu.co/demo1234` (Sara Peña), `juanito@utb.edu.co/demo1234` (Angela Lemus), `docente@utb.edu.co/demo123` (María González con H01A, M01A, C02A y C04A) |
+| Credenciales seed | `demo@utb.edu.co/demo123` (Juan Pérez), `demo2@utb.edu.co/demo1234` (Sara Peña), `demo3@utb.edu.co/demo1234` (Angela Lemus), `docente@utb.edu.co/demo123` (María González con H01A, M01A, C02A y C04A) |
 
 ---
 
@@ -296,7 +296,7 @@ flowchart LR
 | `PointSource.CANJE_RECOMPENSA` para débitos | Reutilizar `MISION_COMPLETADA` negativo | El re-uso contaminaba agregados por `source`; el nuevo enum separa canjes | Implementado |
 | Interfaz `AcademicSource` + toggle por env | Cambiar las queries de `curriculum`/`student` in situ cuando llegue la API real | Permite validar la integración con el mock sin reescribir las rutas ni tocar la BD host; el dominio no depende del origen | Implementado |
 | `external-academic-api` (FastAPI) como mock | Apuntar la app a la API real de la universidad de una vez | Falta contrato real; el mock fija la forma de la respuesta y sirve de tests de contrato mientras tanto | Vigente, pendiente contrato real |
-| `docker compose` con 3 servicios | `setup.sh` como flujo principal | `setup.sh` es solo Linux/macOS y exige Postgres en el host; Docker hace el proyecto reproducible en Windows/macOS/Linux sin Node ni Postgres | Implementado (`setup.sh` queda como Opción B) |
+| `docker compose` con 3 servicios | Ejecución local con Node y PostgreSQL | Docker hace el proyecto reproducible en Windows/macOS/Linux sin Node ni PostgreSQL en el host | Implementado como único flujo |
 | Seed condicional (`seed-if-empty`) en el arranque | `db:seed` en el `command` del contenedor | `seed.ts` es destructivo (22 `deleteMany()`); ejecutarlo en cada `up` borraría los datos de quien ya trabaja | Implementado |
 | `RiskAlert.student → StudentProfile` con cascade | `studentId` suelto sin FK | Evita huérfanos y permite joins; `Recommendation` ya tenía FK | Implementado |
 | `MANUAL` excluido de promedio y `APROBAR_CREDITOS_SEMESTRE` | Cambiar `POST /curriculum` a `INSCRITO` + aval | Parche defensivo mínimo sin romper UX de planificación; el cambio de estado queda pendiente | Mitigación parcial |
@@ -357,11 +357,10 @@ flowchart LR
 | `middleware` solo verifica existencia de cookie | No valida firma/expiración; confía en que cada API revalida | `middleware.ts:25-28`, `config.matcher` excluye `/api` | Mantener regla "cada ruta revalida"; evaluar `auth()` en middleware/proxy |
 | Periodo `YYYY-1/2` duplicado con `getMonth()<6` | Desfase con calendario UTB real; 6 implementaciones divergentes | `missionVerification.ts:14`, `recommendations.ts:177`, `stats/rewards/curriculum/student route.ts`, `seed.ts:13` | Centralizar en `src/lib/period.ts` + tabla `AcademicPeriod` |
 | Doble fuente académica `AcademicRecord` vs `Enrollment` | `AcademicRecord` usa `courseCode` string sin FK; `getAverageGrade` prioriza historial y puede divergir de `Enrollment` | `schema.prisma:226-241`, `academic.ts:63-70` | Definir fuente canónica (PROA→`Enrollment UNIVERSITY`) y deprecar/mapear `AcademicRecord` |
-| Seed demo inconsistente | `juanito@utb.edu.co` → "Angela Lemus" (nombre que no corresponde al correo) | `seed.ts:320,375,427`, `README.md:302` | Renombrar a `angela.lemus@` o cambiar el nombre a uno coherente con el alias |
+| Seed demo inconsistente | El correo de Angela no correspondía al alias de demostración | `prisma/seed.ts`, `utb-external-api/src/fixtures/seed.json` | Resuelto con `demo3@utb.edu.co` |
 | Typo `RUTA_ACademica` fosilizado | Enum + código + migración histórica con mayúscula intermedia | `schema.prisma:452`, `recommendations.ts:5,158`, `migrations/..._add_rewards/migration.sql:35` | Migración de rename `RUTA_ACademica→RUTA_ACADEMICA` + alias temporal |
 | Cobertura solo unitaria de `lib` | Sin tests de `request-code/verify-code`, canje, `curriculum`, `teacher`; regresiones silenciosas | `test:unit` solo `src/lib/**/*.test.ts` | Añadir tests de integración API (OTP, JIT, canje `maxUses`, `MANUAL`) |
 | 6 warnings `npm run lint` | `<img>` en `Sidebar`, vars sin uso en `Header` | Salida `npm run lint` | Migrar a `next/image`, limpiar `Header.tsx` |
-| `setup.sh` desactualizado | No genera vars de correo/ADMIN ni ejecuta `db:import-proa` | `setup.sh`, `.env.example:9-17` | Extender setup con prompts Resend/SMTP + `ADMIN_EMAIL` |
 | `getCurrentSemester` incluye `MANUAL` | Auto-selección puede anclar semestre actual ficticio | `academic.ts:39-44` | Filtrar `source===UNIVERSITY` para semestre oficial; mostrar "planeado" aparte |
 
 ### 11.3 Supuestos abiertos con UTB

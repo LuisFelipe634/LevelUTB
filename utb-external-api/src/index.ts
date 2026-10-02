@@ -68,6 +68,8 @@ await app.register(cors, {
 });
 
 // API key middleware - only enforces if env var is set
+// NOTE: debe ser async. Un hook onRequest sincrono (sin async/done) cuelga
+// todos los requests con fastify 4.29 (verificado: /health nunca responde).
 const requiredKey = process.env.API_KEY || process.env.UNIVERSITY_API_KEY || ""
 app.addHook("onRequest", async (request: FastifyRequest, reply: FastifyReply) => {
   if (request.url === "/health") return

@@ -71,7 +71,7 @@ async function fetchExternalAcademicData(userId: string): Promise<Resolved<Acade
   } catch (e) {
     if (e instanceof Error && e.message === "EXTERNAL_API_UNAVAILABLE") {
       return {
-        error: NextResponse.json({ error: "Fuente acadÃ©mica externa no disponible" }, { status: 503 }),
+        error: NextResponse.json({ error: "Fuente académica externa no disponible" }, { status: 503 }),
       }
     }
     throw e

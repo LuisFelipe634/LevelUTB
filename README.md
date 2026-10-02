@@ -43,7 +43,7 @@ Next.js App Router (src/app/layout.tsx -> AppShell -> Sidebar/Header)
   src/lib/* (academic, recommendations, streak, activity, missionVerification)
         |
         v
-  Prisma Client (src/lib/prisma.ts) -> PostgreSQL (22 modelos)
+  Prisma Client (src/lib/prisma.ts) -> PostgreSQL (24 modelos)
 ```
 
 ### Capas del backend
@@ -55,7 +55,7 @@ Next.js App Router (src/app/layout.tsx -> AppShell -> Sidebar/Header)
 | Rutas HTTP | `src/app/api/**/route.ts` | Validan entrada, rol y responden JSON. Ver `src/app/api/README.md`. |
 | Dominio | `src/lib/` | `academic.ts` (promedio, semestre actual, tope créditos), `recommendations.ts`, `streak.ts`, `activity.ts` (`ACTIVITY_ACTIONS`, racha diaria), `missionRules.ts` + `missionVerification.ts` (auto-verificación), `getBadgeSource.ts` (origen del catálogo de insignias), `period.ts` (períodos académicos centralizados). |
 | Persistencia | `src/lib/prisma.ts` | Singleton `PrismaClient` + `PrismaPg`. En dev se reutiliza vía `globalThis`. |
-| Modelo | `prisma/schema.prisma` | 22 modelos: usuarios, malla, progreso, gamificación, recompensas, notificaciones, riesgo. |
+| Modelo | `prisma/schema.prisma` | 24 modelos: usuarios, malla, progreso, gamificación, recompensas, notificaciones, riesgo. |
 | Datos | `prisma/seed.ts` | Seed base (programa ISCO 2019, 10 semestres, 55 cursos, 162 créditos, niveles, misiones, recompensas y usuarios demo). |
 
 ### Catálogo de APIs
@@ -63,7 +63,6 @@ Next.js App Router (src/app/layout.tsx -> AppShell -> Sidebar/Header)
 | Endpoint | Métodos | Rol | Función |
 |---|---|---|---|
 | `/api/auth/[...nextauth]` | GET, POST | público | Login/logout NextAuth Credentials. |
-| `/api/student` | GET | STUDENT | Perfil + stats + racha + insignias recientes (registra `ACADEMIC_DAILY_ACTIVITY`). |
 | `/api/curriculum` | GET, POST | STUDENT | GET malla por semestre con estado (aprobado/en curso/bloqueado/disponible), prerrequisitos y créditos. POST selección de cursos del periodo. |
 | `/api/stats` | GET | STUDENT | Créditos aprobados/totales, promedio (`academic.ts`), avance por semestre, puntos/nivel, tendencia e insignias obtenidas. |
 | `/api/missions` | GET, POST | STUDENT | GET disponibles (por `level`) + estado del estudiante. POST crear/avanzar con `evidence`; si `autoVerify` usa `missionVerification.ts`, si no queda `EN_REVISION`. |
@@ -150,12 +149,11 @@ Motor `src/lib/recommendations.ts`: prerrequisitos que más desbloquean (alta), 
 ```text
 LevelUTB/
   .env / .env.example        # DATABASE_URL, NEXTAUTH_SECRET/URL (ver Instalación)
-  setup.sh                   # Instalación automática (Node via nvm, Postgres, .env, db:push, seed)
   next.config.ts / tsconfig.json / eslint.config.mjs / postcss.config.mjs / prisma.config.ts
   public/utb-logotipo.png
   scripts/                   # import-proa.ts, sync-badges.ts, badges.json
   prisma/
-    schema.prisma            # 22 modelos
+    schema.prisma            # 24 modelos
     migrations/              # Migraciones SQL
     seed.ts                  # Seed base: ISCO 2019 + insignias + usuarios demo
     seed-if-empty.ts         # Seed condicional (solo si users está vacía)
@@ -333,33 +331,22 @@ El email debe terminar en `@utb.edu.co` (validado en `src/lib/auth.ts`).
 |---|---|---|---|
 | STUDENT | demo@utb.edu.co | demo123 | Juan Pérez — 6to semestre, 95 créditos |
 | STUDENT | demo2@utb.edu.co | demo1234 | Sara Peña — 8vo semestre, 113 créditos |
-| STUDENT | juanito@utb.edu.co | demo1234 | Angela Lemus — 3er semestre, 60 créditos |
+| STUDENT | demo3@utb.edu.co | demo1234 | Angela Lemus — 3er semestre, 60 créditos |
 | TEACHER | docente@utb.edu.co | demo123 | María González — cursos H01A, M01A, C02A y C04A |
-
----
 
 ## Comandos Disponibles
 
 ```bash
-docker compose up -d      # Levanta app + db + api externa (Opción A)
-docker compose down       # Para los servicios (conserva datos)
-docker compose down -v    # Para y borra la base de datos
+docker compose up --build -d  # Construye y levanta todos los servicios
+docker compose ps              # Comprueba el estado de los contenedores
+docker compose logs --tail=50  # Consulta los logs de todos los servicios
+docker compose restart         # Reinicia sin eliminar datos
+docker compose down            # Detiene los servicios y conserva datos
+docker compose down -v         # Detiene y elimina el volumen PostgreSQL
 
-./setup.sh              # Instalación completa (solo Linux/macOS)
-./setup.sh --skip-db    # Solo dependencias npm
-
-npm run dev              # Dev con hot reload
-npm run build              # Build producción
-npm run start            # Servidor producción
-
-npm run db:generate      # Generar cliente Prisma
-npm run db:push          # Sincronizar schema (sin migraciones)
-npm run db:seed          # Seed base DESTRUCTIVO (tsx prisma/seed.ts)
-npm run db:seed-if-empty # Seed solo si la tabla users está vacía (no destructivo)
-npm run db:studio        # Prisma Studio GUI
-
-npm run lint               # ESLint (next + TS)
-nnnpm run test:unit        # Tests unitarios (tsx --test src/lib/**/*.test.ts)
+docker compose exec app npm run db:seed          # Seed destructivo
+docker compose exec app npm run db:seed-if-empty # Seed no destructivo
+docker compose exec app npm run lint              # Lint dentro del contenedor
 ```
 
 ---
@@ -395,7 +382,7 @@ nnnpm run test:unit        # Tests unitarios (tsx --test src/lib/**/*.test.ts)
 
 ---
 
-## Modelo de Base de Datos (22)
+## Modelo de Base de Datos (24)
 
 ### Usuarios y auth
 

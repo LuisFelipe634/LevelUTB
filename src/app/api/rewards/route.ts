@@ -102,15 +102,26 @@ export async function POST(request: Request) {
     if ("error" in session) return session.error
 
     const { userId } = session
-    const body = await request.json()
-    const { rewardId, courseId, evidence } = body as { rewardId: string; courseId?: string; evidence?: string }
+    let body: unknown
+    try {
+      body = await request.json()
+    } catch {
+      return NextResponse.json({ error: "Cuerpo JSON inválido" }, { status: 400 })
+    }
+    const { rewardId, courseId, evidence } = body as { rewardId?: unknown; courseId?: unknown; evidence?: unknown }
 
-    if (!rewardId || !courseId) {
+    if (typeof rewardId !== "string" || typeof courseId !== "string" || !rewardId || !courseId) {
       return NextResponse.json({ error: "Debes seleccionar el curso objetivo" }, { status: 400 })
+    }
+    if (typeof evidence === "string" && evidence.length > 2000) {
+      return NextResponse.json(
+        { error: "La evidencia no puede superar 2000 caracteres" },
+        { status: 400 }
+      )
     }
 
     const redeemRewardUseCase = getRedeemRewardUseCase()
-    const result = await redeemRewardUseCase.execute(userId, { rewardId, courseId, evidence })
+    const result = await redeemRewardUseCase.execute(userId, { rewardId, courseId, evidence: typeof evidence === "string" ? evidence : undefined })
 
     return NextResponse.json({ studentReward: result.studentReward })
   } catch (error) {

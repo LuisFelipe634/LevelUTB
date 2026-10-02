@@ -105,6 +105,21 @@ async function syncBadges() {
   console.log('🔄 Sincronizando insignias desde fixtures locales...')
   console.log(`📚 Catálogo v${badgeFixtures.catalogVersion} (${badgeFixtures.badges.length} insignias)`)
 
+  // El seed base trae 12 badges legacy con otros nombres; el catálogo canónico
+  // es scripts/badges.json (8). Se eliminan los que no pertenecen al fixture
+  // para no acumular ~20 tras seed + sync.
+  const fixtureNames = badgeFixtures.badges.map((b) => b.name)
+  const staleBadges = await prisma.badge.findMany({
+    where: { name: { notIn: fixtureNames } },
+    select: { id: true },
+  })
+  if (staleBadges.length > 0) {
+    const staleIds = staleBadges.map((b) => b.id)
+    await prisma.studentBadge.deleteMany({ where: { badgeId: { in: staleIds } } })
+    const stale = await prisma.badge.deleteMany({ where: { id: { in: staleIds } } })
+    console.log(`🧹 Eliminadas ${stale.count} insignias fuera del catálogo`)
+  }
+
   const badgeIdByCode = new Map<string, string>()
 
   // Upsert all badges in parallel

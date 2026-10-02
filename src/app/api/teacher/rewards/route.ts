@@ -41,15 +41,23 @@ export async function PATCH(request: Request) {
   }
 
   try {
-    const body = await request.json()
-    const { studentRewardId, courseId, decision, comment } = body as { studentRewardId: string; courseId?: string; decision: "approve" | "reject"; comment?: string }
+    let body: unknown
+    try {
+      body = await request.json()
+    } catch {
+      return NextResponse.json({ error: "Cuerpo JSON inválido" }, { status: 400 })
+    }
+    const { studentRewardId, courseId, decision, comment } = body as { studentRewardId?: unknown; courseId?: string; decision?: unknown; comment?: unknown }
 
-    if (!studentRewardId || !["approve", "reject"].includes(decision)) {
+    if (typeof studentRewardId !== "string" || !["approve", "reject"].includes(decision as string)) {
       return NextResponse.json({ error: "Decisión inválida" }, { status: 400 })
+    }
+    if (typeof comment === "string" && comment.length > 2000) {
+      return NextResponse.json({ error: "El comentario no puede superar 2000 caracteres" }, { status: 400 })
     }
 
     const reviewRewardUseCase = getReviewRewardUseCase()
-    const result = await reviewRewardUseCase.execute(teacherUserId, { studentRewardId, courseId, decision, comment })
+    const result = await reviewRewardUseCase.execute(teacherUserId, { studentRewardId, courseId, decision: decision as "approve" | "reject", comment: typeof comment === "string" ? comment : undefined })
 
     return NextResponse.json(result)
   } catch (error) {

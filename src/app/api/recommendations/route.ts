@@ -57,11 +57,32 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 })
     }
 
-    const body = await request.json()
-    const { recommendationId } = body
+    let body: unknown
+    try {
+      body = await request.json()
+    } catch {
+      return NextResponse.json({ error: "Cuerpo JSON inválido" }, { status: 400 })
+    }
+    const { recommendationId } = body as { recommendationId?: unknown }
 
-    if (!recommendationId) {
+    if (!recommendationId || typeof recommendationId !== "string") {
       return NextResponse.json({ error: "ID de recomendación requerido" }, { status: 400 })
+    }
+
+    const profile = await prisma.studentProfile.findUnique({
+      where: { userId: session.user.id as string },
+      select: { id: true },
+    })
+    if (!profile) {
+      return NextResponse.json({ error: "Perfil de estudiante no encontrado" }, { status: 404 })
+    }
+
+    const existing = await prisma.recommendation.findFirst({
+      where: { id: recommendationId, studentId: profile.id },
+      select: { id: true },
+    })
+    if (!existing) {
+      return NextResponse.json({ error: "Recomendación no encontrada" }, { status: 404 })
     }
 
     await prisma.recommendation.update({

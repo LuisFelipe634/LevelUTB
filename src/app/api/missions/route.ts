@@ -296,8 +296,26 @@ export async function POST(request: Request) {
     if ("error" in session) return session.error
 
     const { userId } = session
-    const body = await request.json()
-    const { missionId, action, evidence } = body
+    let body: unknown
+    try {
+      body = await request.json()
+    } catch {
+      return NextResponse.json({ error: "Cuerpo JSON inválido" }, { status: 400 })
+    }
+    const { missionId, action, evidence } = body as {
+      missionId?: unknown
+      action?: unknown
+      evidence?: unknown
+    }
+    if (typeof missionId !== "string" || missionId.length === 0) {
+      return NextResponse.json({ error: "missionId requerido" }, { status: 400 })
+    }
+    if (typeof evidence === "string" && evidence.length > 2000) {
+      return NextResponse.json(
+        { error: "La evidencia no puede superar 2000 caracteres" },
+        { status: 400 }
+      )
+    }
 
     const context = await loadMissionContext(userId, missionId)
     if ("error" in context) return context.error

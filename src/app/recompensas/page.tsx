@@ -111,7 +111,7 @@ function emptyStateMessage(filter: string): string {
 }
 
 function RewardEarnedStatus({ earned }: Readonly<{ earned: EarnedReward }>) {
-  const status = statusConfig[earned.status]
+  const status = statusConfig[earned.status] ?? statusConfig.EXPIRADO
 
   return (
     <div className="space-y-2 mb-3">

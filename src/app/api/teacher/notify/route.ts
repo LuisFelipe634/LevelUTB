@@ -16,11 +16,19 @@ export async function POST(request: Request) {
   }
 
   try {
-    const body = await request.json()
-    const { studentId, customMessage } = body as { studentId?: string; customMessage?: string }
+    let body: unknown
+    try {
+      body = await request.json()
+    } catch {
+      return NextResponse.json({ error: "Cuerpo JSON inválido" }, { status: 400 })
+    }
+    const { studentId, customMessage } = body as { studentId?: unknown; customMessage?: unknown }
 
     if (!studentId || typeof studentId !== "string") {
       return NextResponse.json({ error: "studentId requerido" }, { status: 400 })
+    }
+    if (typeof customMessage === "string" && customMessage.length > 2000) {
+      return NextResponse.json({ error: "El mensaje no puede superar 2000 caracteres" }, { status: 400 })
     }
 
     // Verificar que el docente tiene asignado al estudiante
