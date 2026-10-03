@@ -231,56 +231,65 @@ Docker es el único método soportado para preparar el proyecto de forma igual e
 Windows, macOS y Linux. No necesitas instalar Node.js, npm ni PostgreSQL en el
 equipo anfitrión.
 
-#### 1. Instalar requisitos
+#### 1. Requisitos previos (instalar ANTES de empezar)
 
-1. Instala Docker Desktop desde <https://www.docker.com/products/docker-desktop/>.
-2. Inicia Docker Desktop y espera a que indique que el motor está ejecutándose.
-3. Instala Git desde <https://git-scm.com/downloads>.
+No necesitas Node.js, npm ni PostgreSQL: los contenedores ya los traen.
+`./setup.sh` verifica todo esto automáticamente y te dice qué falta.
+
+| Requisito | Para qué | Cómo verificar |
+|---|---|---|
+| Docker Desktop (incluye Engine + plugin Compose v2) | Construir y correr `db`, `external-academic-api` y `app` | `docker --version` y `docker compose version` |
+| Motor Docker en ejecución | Sin el motor, ningún contenedor arranca | Abre Docker Desktop y espera a que diga "Engine running"; o `docker info` |
+| Git | Clonar el repo (en Windows además trae Git Bash) | `git --version` |
+| Bash + `curl` + `openssl` (o `python3`) | Ejecutar `./setup.sh` y generar secretos del `.env` | Ya vienen con Git Bash (Windows) y con macOS/Linux. Verifica con `bash --version`, `curl --version`, `openssl version` |
+| Puertos libres `3000`, `3001` y `5432` | App, API académica y PostgreSQL | Si otro programa los ocupa, detenlo antes de instalar |
+
+Notas por sistema:
+- **Windows:** instala Git desde <https://git-scm.com/downloads> (incluye Git Bash) y Docker Desktop desde <https://www.docker.com/products/docker-desktop/> con el backend WSL 2 activado. Ejecuta `./setup.sh` desde **Git Bash**, no desde PowerShell.
+- **macOS / Linux:** instala Docker Desktop (o Engine + Compose) y Git con tu gestor de paquetes. Ejecuta `./setup.sh` desde tu terminal habitual.
 
 #### 2. Descargar el proyecto
 
-Clona el repositorio usando la url: 
-
 ```bash
-git clone <https://github.com/LuisFelipe634/LevelUTB>
+git clone https://github.com/LuisFelipe634/LevelUTB.git
 cd LevelUTB
 ```
 
-#### 3. Crear la configuración local
+#### 3. Instalación automática
 
-En Windows PowerShell:
-
-```powershell
-Copy-Item .env.example .env
-```
-
-En macOS o Linux:
+Desde la raíz del proyecto (en Windows, desde **Git Bash**) ejecuta:
 
 ```bash
-cp .env.example .env
+./setup.sh
 ```
 
-Abre `.env` y cambia como mínimo `NEXTAUTH_SECRET` por una cadena larga y
-reemplaza la contraseña del postgres a la establecida por usted. Conserva estos valores para ejecutar la configuración incluida:
+Esto hace todo por ti, sin editar nada a mano:
 
-```env
-POSTGRES_DB="levelutb"
-POSTGRES_USER="postgres"
-POSTGRES_PASSWORD="tu-clave-postgres"
-UNIVERSITY_API_URL="http://external-academic-api:3001"
-UNIVERSITY_API_KEY="dev-key"
-UNIVERSITY_API_ENABLED="true"
-```
+1. Verifica Docker, el plugin Compose y que el motor esté en ejecución.
+2. Crea `.env` desde `.env.example` si no existe (nunca sobrescribe el tuyo).
+3. Genera `NEXTAUTH_SECRET` y `POSTGRES_PASSWORD` automáticamente si aún
+   tienen el valor placeholder.
+4. Levanta los servicios con `docker compose up --build -d`.
+5. Espera a que PostgreSQL, la API académica y la app estén listas.
+6. Muestra el estado final, las URLs y las credenciales demo.
 
-#### 4. Construir y lanzar
-
-Desde la raíz del proyecto ejecuta:
+Opciones útiles:
 
 ```bash
-docker compose up --build -d
+./setup.sh --yes --reset   # Reinstalación limpia (borra el volumen pgdata)
+./setup.sh --reseed         # Reinstala y regenera los datos demo (destructivo)
+./setup.sh --no-build       # Levanta sin reconstruir imágenes
+./setup.sh --help           # Ver todas las opciones (incluye modo --local sin Docker)
 ```
 
-El arranque realiza este proceso automáticamente:
+> Si NO usas `./setup.sh`, hazlo manual: `cp .env.example .env`
+> (en PowerShell: `Copy-Item .env.example .env`), genera un `NEXTAUTH_SECRET`
+> de mínimo 32 caracteres y una clave en `POSTGRES_PASSWORD`, y luego
+> `docker compose up --build -d`. Dentro de Docker, la app reescribe
+> `DATABASE_URL` a `@db` y `UNIVERSITY_API_URL` al servicio interno
+> automáticamente; los valores de tu `.env` aplican al modo local.
+
+#### 4. Qué hace el arranque
 
 1. Inicia PostgreSQL y espera a que esté saludable.
 2. Inicia `external-academic-api` con `utb-external-api/src/fixtures/seed.json`.
@@ -301,8 +310,9 @@ docker compose logs --tail=50 app
 docker compose logs --tail=50 external-academic-api
 ```
 
-Debes ver `healthy` en `db`, `Ready` en `app` y `Server listening` en la API
-externa. Abre <http://localhost:3000> y entra con una credencial de prueba.
+Debes ver los tres servicios en ejecución, `healthy` en `db` y mensajes de
+`listening`/`Ready` en los logs. Abre <http://localhost:3000> y entra con
+una credencial de prueba (`./setup.sh` ya muestra este resumen al terminar).
 
 Servicios disponibles:
 
@@ -333,6 +343,12 @@ El seed destructivo reemplaza los datos de soporte y gamificación:
 docker compose exec -T app npm run db:seed
 ```
 
+Equivalente automático (reinstala y resiembra en un solo paso):
+
+```bash
+./setup.sh --reseed --yes
+```
+
 La API académica no requiere un comando de seed separado: carga su información
 automáticamente desde `utb-external-api/src/fixtures/seed.json` al iniciar.
 
@@ -344,6 +360,12 @@ instalación de desarrollo:
 ```bash
 docker compose down -v
 docker compose up --build -d
+```
+
+Equivalente automático:
+
+```bash
+./setup.sh --reset --yes
 ```
 
 #### 9. Detener el proyecto
@@ -370,7 +392,10 @@ El email debe terminar en `@utb.edu.co` (validado en `src/lib/auth.ts`).
 ## Comandos Disponibles
 
 ```bash
-docker compose up --build -d  # Construye y levanta todos los servicios
+./setup.sh                 # Instalación automática completa (recomendado)
+./setup.sh --yes --reset   # Reinstalación limpia (borra el volumen pgdata)
+./setup.sh --reseed --yes  # Reinstala y regenera los datos demo
+docker compose up --build -d  # Construye y levanta todos los servicios (manual)
 docker compose ps              # Comprueba el estado de los contenedores
 docker compose logs --tail=50  # Consulta los logs de todos los servicios
 docker compose restart         # Reinicia sin eliminar datos
