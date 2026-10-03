@@ -34,10 +34,10 @@ RED='\033[0;31m'
 NC='\033[0m'
 SEP="=============================="
 
-info()  { echo -e "${GREEN}[setup]${NC} $*"; }
-warn()  { echo -e "${YELLOW}[setup]${NC} $*"; }
-error() { echo -e "${RED}[setup]${NC} $*" >&2; }
-die()   { error "$*"; exit 1; }
+info()  { local msg="$*"; echo -e "${GREEN}[setup]${NC} $msg"; }
+warn()  { local msg="$*"; echo -e "${YELLOW}[setup]${NC} $msg"; }
+error() { local msg="$*"; echo -e "${RED}[setup]${NC} $msg" >&2; }
+die()   { local msg="$*"; error "$msg"; exit 1; }
 
 # ---------- Flags ----------
 ASSUME_YES=false
@@ -48,7 +48,8 @@ LOCAL_MODE=false
 SKIP_DB=false
 
 usage() {
-  awk '/^set -euo/{exit} NR>1 {sub(/^# ?/, ""); print}' "$0"
+  local script="$0"
+  awk '/^set -euo/{exit} NR>1 {sub(/^# ?/, ""); print}' "$script"
 }
 
 for arg in "$@"; do
@@ -83,6 +84,7 @@ confirm_destructive() {
 detect_os() {
   case "${OSTYPE:-}" in
     msys*|msys|mingw*|cygwin*) echo "windows"; return ;;
+    *) ;; # Otro terminal: sigue con las demas detecciones.
   esac
   if [[ -f /proc/version ]] && grep -qi microsoft /proc/version 2>/dev/null; then
     echo "wsl"; return
@@ -97,6 +99,7 @@ detect_os() {
       ubuntu|debian|linuxmint|raspbian) echo "debian"; return ;;
       fedora|rhel|centos|rocky|alma*)   echo "fedora"; return ;;
       arch|manjaro|endeavouros)         echo "arch"; return ;;
+      *) ;; # Distro no listada: sigue a la deteccion por uname.
     esac
   fi
   uname -s 2>/dev/null | grep -qi "mingw\|msys\|windows" && { echo "windows"; return; }
@@ -110,7 +113,7 @@ info "Sistema detectado: $OS"
 [[ -f docker-compose.yml ]] || die "Ejecuta ./setup.sh desde la raiz del proyecto (falta docker-compose.yml)."
 [[ -f .env.example ]] || die "Falta .env.example en la raiz del proyecto."
 
-command_exists() { command -v "$1" >/dev/null 2>&1; }
+command_exists() { local cmd="$1"; command -v "$cmd" >/dev/null 2>&1; }
 
 # ---------- Secretos ----------
 gen_secret() {
@@ -145,6 +148,15 @@ get_env_key() {
 
 pgdata_volume_exists() {
   docker volume ls --format '{{.Name}}' 2>/dev/null | grep -q "pgdata" || return 1
+}
+
+# Descargas remotas siempre sobre HTTPS (incluyendo redirects):
+# sin --proto-redir, un `curl -L` podria seguir un redirect a http:// plano
+# y ejecutar codigo no cifrado. Solo para URLs remotas; el health-check
+# a localhost usa http:// a proposito (trafico local, sin TLS).
+curl_https() {
+  local args=("$@")
+  curl -fsSL --proto '=https' --proto-redir '=https' "${args[@]}"
 }
 
 # ---------- .env automatico ----------
@@ -204,13 +216,14 @@ check_docker() {
   info "Docker OK: $(docker --version | head -n1)"
 }
 
-compose() { docker compose "$@"; }
+compose() { local args=("$@"); docker compose "${args[@]}"; }
 
 wait_for_cmd() {
   local timeout_s="$1"; shift
+  local cmd=("$@")
   local waited=0
   while (( waited < timeout_s )); do
-    if "$@" >/dev/null 2>&1; then return 0; fi
+    if "${cmd[@]}" >/dev/null 2>&1; then return 0; fi
     sleep 5
     waited=$((waited + 5))
   done
@@ -220,8 +233,12 @@ wait_for_cmd() {
 wait_for_url() {
   local url="$1" timeout_s="$2"
   local waited=0
+  # Seguro por diseno: solo health-checks a localhost (nunca sale de la
+  # maquina), sin -L y con --max-redirs 0 (los redirects jamas se siguen),
+  # y la respuesta se descarta (solo importa el exit code). HTTPS no aplica:
+  # los contenedores de desarrollo sirven HTTP plano en loopback.
   while (( waited < timeout_s )); do
-    if command_exists curl && curl -fsS --max-time 3 "$url" >/dev/null 2>&1; then return 0; fi
+    if command_exists curl && curl -fsS --max-time 3 --max-redirs 0 "$url" >/dev/null 2>&1; then return 0; fi
     sleep 5
     waited=$((waited + 5))
   done
@@ -318,7 +335,7 @@ ensure_pkg() {
     macos)
       if ! command -v brew >/dev/null 2>&1; then
         warn "Homebrew no detectado. Instalandolo..."
-        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+        /bin/bash -c "$(curl_https https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
         if [[ -d /opt/homebrew/bin ]]; then
           export PATH="/opt/homebrew/bin:$PATH"
         elif [[ -d /usr/local/bin ]]; then
@@ -343,7 +360,7 @@ ensure_node() {
   fi
   if [[ ! -d "$HOME/.nvm" ]]; then
     info "Instalando nvm..."
-    curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
+    curl_https https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
   fi
   export NVM_DIR="$HOME/.nvm"
   # shellcheck disable=SC1091
@@ -397,10 +414,11 @@ start_postgres() {
 }
 
 psql_admin() {
+  local args=("$@")
   if [[ "$OS" == "macos" ]]; then
-    "$@"
+    "${args[@]}"
   else
-    sudo -u postgres "$@"
+    sudo -u postgres "${args[@]}"
   fi
 }
 
@@ -441,6 +459,7 @@ main_local() {
 
   case "$OS" in
     windows|wsl) die "El modo --local no esta soportado en Windows/WSL. Usa ./setup.sh (Docker) en su lugar." ;;
+    *) ;; # Linux/macOS: continua con la instalacion nativa.
   esac
   command_exists curl || ensure_pkg curl
 
@@ -502,10 +521,10 @@ main_local() {
 # ENTRADA PRINCIPAL
 # =======================================================
 if [[ "$LOCAL_MODE" == "true" ]]; then
-  main_local "$@"
+  main_local
 else
   if [[ "$SKIP_DB" == "true" ]]; then
     warn "--skip-db solo aplica a --local; se ignora en modo Docker."
   fi
-  main_docker "$@"
+  main_docker
 fi
