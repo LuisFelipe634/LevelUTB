@@ -138,24 +138,33 @@ export class PrismaStudentRewardRepository implements StudentRewardRepository {
 }
 
 export class PrismaPointRepository implements PointRepository {
-  async sumByUserId(userId: string): Promise<number> {
+  async sumByUserId(userId: string, periodCode?: string): Promise<number> {
     const points = await prisma.point.groupBy({
       by: ["source"],
-      where: { userId },
+      where: { userId, ...(periodCode ? { periodCode } : {}) },
       _sum: { amount: true },
     })
     return points.reduce((acc, p) => acc + (p._sum.amount || 0), 0)
   }
 
-  async create(data: { userId: string; amount: number; source: string; description: string }): Promise<void> {
-    await prisma.point.create({
-      data: {
-        userId: data.userId,
-        amount: data.amount,
-        source: data.source as "MISION_COMPLETADA" | "CANJE_RECOMPENSA" | "RENDIMIENTO_ACADEMICO" | "MEJORA_PROMEDIO" | "CONSISTENCIA" | "IMPACTO_SOCIAL" | "EVENTO_ESPECIAL",
-        description: data.description,
-      },
-    })
+  async create(data: { userId: string; amount: number; source: "PUNTOS_BASE_SEMESTRAL" | "MISION_COMPLETADA" | "RENDIMIENTO_ACADEMICO" | "MEJORA_PROMEDIO" | "CONSISTENCIA" | "IMPACTO_SOCIAL" | "EVENTO_ESPECIAL" | "CANJE_RECOMPENSA" | "REVERSO_CANJE" | "AJUSTE_ACADEMICO"; description: string; periodCode?: string; referenceKey?: string }): Promise<void> {
+    if (data.referenceKey) {
+      await prisma.point.upsert({
+        where: { referenceKey: data.referenceKey },
+        update: {},
+        create: {
+          userId: data.userId,
+          amount: data.amount,
+          source: data.source,
+          periodCode: data.periodCode,
+          referenceKey: data.referenceKey,
+          description: data.description,
+        },
+      })
+      return
+    }
+
+    await prisma.point.create({ data })
   }
 }
 
@@ -180,7 +189,7 @@ export class PrismaRewardServiceRepository implements RewardServiceRepository {
     const [rewards, studentRewards, totalPoints, profile] = await Promise.all([
       this.rewardRepository.findActiveRewards(),
       this.studentRewardRepository.findByStudentId(studentId),
-      this.pointRepository.sumByUserId(studentId),
+      this.pointRepository.sumByUserId(studentId, period),
       prisma.studentProfile.findUnique({
         where: { userId: studentId },
         include: {
@@ -243,26 +252,12 @@ export class PrismaRewardServiceRepository implements RewardServiceRepository {
       throw new Error("MAX_USES_REACHED")
     }
 
-    const totalPoints = await this.pointRepository.sumByUserId(studentId)
-    if (totalPoints < reward.cost) {
-      throw new Error("INSUFFICIENT_POINTS")
-    }
-
     const pendingRequest = await this.studentRewardRepository.findByStudentIdAndRewardIdAndCourseId(studentId, input.rewardId, input.courseId, "SOLICITADO")
     if (pendingRequest) {
       throw new Error("PENDING_REQUEST_EXISTS")
     }
 
     const studentReward = await prisma.$transaction(async (tx) => {
-      await tx.point.create({
-        data: {
-          userId: studentId,
-          amount: -reward.cost,
-          source: "CANJE_RECOMPENSA",
-          description: `Canje: ${reward.name}`,
-        },
-      })
-
       const sr = await tx.studentReward.create({
         data: {
           studentId,
@@ -274,6 +269,26 @@ export class PrismaRewardServiceRepository implements RewardServiceRepository {
           expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         },
         include: { reward: true, course: { include: { semester: true } } },
+      })
+
+      const pointBalance = await tx.point.aggregate({
+        where: { userId: studentId, periodCode: period },
+        _sum: { amount: true },
+      })
+      const totalPoints = pointBalance._sum.amount || 0
+      if (totalPoints < reward.cost) {
+        throw new Error("INSUFFICIENT_POINTS")
+      }
+
+      await tx.point.create({
+        data: {
+          userId: studentId,
+          amount: -reward.cost,
+          source: "CANJE_RECOMPENSA",
+          periodCode: period,
+          referenceKey: `REWARD_RESERVATION:${sr.id}`,
+          description: `Canje: ${reward.name}`,
+        },
       })
 
       await tx.notification.create({
@@ -469,7 +484,9 @@ export class PrismaRewardServiceRepository implements RewardServiceRepository {
           data: {
             userId: studentReward.studentId,
             amount: studentReward.pointsSpent,
-            source: "MISION_COMPLETADA",
+            source: "REVERSO_CANJE",
+            periodCode: getCurrentPeriod(),
+            referenceKey: `REWARD_REVERSAL:${studentReward.id}`,
             description: `Reembolso: ${studentReward.reward.name} (rechazada)`,
           },
         })

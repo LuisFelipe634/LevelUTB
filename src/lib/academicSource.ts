@@ -7,6 +7,7 @@ export type AcademicEnrollment = {
     code: string
     name: string
     credits: number
+    type?: string | null
     semester?: { number: number }
   }
   status: string

@@ -32,7 +32,7 @@ export interface MissionServiceRepository {
     userId: string,
     metadata: string | null
   ): Promise<VerificationResult>
-  awardPoints(userId: string, amount: number, source: string, description: string): Promise<void>
+  awardPoints(userId: string, amount: number, source: string, description: string, referenceKey?: string): Promise<number>
   createNotification(userId: string, title: string, message: string, type: string, link: string): Promise<void>
 }
 

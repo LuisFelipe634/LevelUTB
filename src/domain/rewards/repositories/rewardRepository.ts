@@ -1,4 +1,4 @@
-import type { Reward, StudentReward, EnrolledCourse, RewardsStats, TeacherRewardsResponse, RedemptionInput, ReviewInput } from "../types"
+import type { PointSourceEnum, Reward, StudentReward, EnrolledCourse, RewardsStats, TeacherRewardsResponse, RedemptionInput, ReviewInput } from "../types"
 
 export interface RewardRepository {
   findActiveRewards(): Promise<Reward[]>
@@ -17,8 +17,8 @@ export interface StudentRewardRepository {
 }
 
 export interface PointRepository {
-  sumByUserId(userId: string): Promise<number>
-  create(data: { userId: string; amount: number; source: string; description: string }): Promise<void>
+  sumByUserId(userId: string, periodCode?: string): Promise<number>
+  create(data: { userId: string; amount: number; source: PointSourceEnum; description: string; periodCode?: string; referenceKey?: string }): Promise<void>
 }
 
 export interface RewardServiceRepository {

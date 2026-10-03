@@ -10,8 +10,12 @@ import {
   Filter,
   Loader2,
   Play,
-  Check
+  Check,
+  Info,
+  TriangleAlert,
+  X
 } from "lucide-react"
+import { toMissionNotice, type MissionNotice } from "@/lib/missionUi"
 
 interface Mission {
   id: string
@@ -81,6 +85,67 @@ const filterOptions = [
 
 const isActive = (mission: Mission) => mission.status === "EN_PROGRESO" || mission.status === "PENDIENTE"
 const isCompleted = (mission: Mission) => mission.status === "COMPLETADA" || mission.status === "VERIFICADA"
+
+function MissionNoticeBanner({ notice, onClose }: Readonly<{ notice: MissionNotice; onClose: () => void }>) {
+  const isPending = notice.kind === "pending"
+  const Icon = isPending ? Info : TriangleAlert
+
+  return (
+    <div
+      role={isPending ? "status" : "alert"}
+      className={`flex items-start gap-3 rounded-xl border p-4 shadow-xs ${
+        isPending
+          ? "border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/20"
+          : "border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-900/20"
+      }`}
+    >
+      <span
+        className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
+          isPending
+            ? "bg-amber-100 text-amber-700 dark:bg-amber-800/50 dark:text-amber-300"
+            : "bg-red-100 text-red-600 dark:bg-red-800/50 dark:text-red-300"
+        }`}
+      >
+        <Icon className="h-4 w-4" />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p
+          className={`text-sm font-semibold ${
+            isPending
+              ? "text-amber-800 dark:text-amber-200"
+              : "text-red-700 dark:text-red-300"
+          }`}
+        >
+          {notice.title}
+        </p>
+        <p className="mt-0.5 text-sm text-gray-600 dark:text-gray-300">{notice.detail}</p>
+        {typeof notice.progress === "number" && (
+          <div className="mt-2">
+            <div className="mb-1 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+              <span>Progreso de verificación</span>
+              <span className="font-medium">{notice.progress}%</span>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
+              <div
+                className={`h-full rounded-full transition-all ${
+                  isPending ? "bg-amber-500" : "bg-red-500"
+                }`}
+                style={{ width: `${notice.progress}%` }}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+      <button
+        onClick={onClose}
+        aria-label="Cerrar aviso"
+        className="rounded-lg p-1 text-gray-400 hover:bg-gray-200 hover:text-gray-600 dark:hover:bg-gray-700"
+      >
+        <X className="h-4 w-4" />
+      </button>
+    </div>
+  )
+}
 
 function MissionProgress({ progress }: Readonly<{ progress: number }>) {
   return (
@@ -197,6 +262,9 @@ interface MissionCardProps {
   showHistory: boolean
   isActionLoading: boolean
   evidenceValue: string
+  highlighted: boolean
+  pendingDetail: string | null
+  pendingProgress: number | null
   onAction: (action: MissionAction) => void
   onEvidenceChange: (value: string) => void
 }
@@ -206,6 +274,9 @@ function MissionCard({
   showHistory,
   isActionLoading,
   evidenceValue,
+  highlighted,
+  pendingDetail,
+  pendingProgress,
   onAction,
   onEvidenceChange
 }: Readonly<MissionCardProps>) {
@@ -219,7 +290,11 @@ function MissionCard({
 
   return (
     <div
-      className="bg-white dark:bg-gray-800 rounded-xl shadow-xs border border-gray-200 dark:border-gray-700 p-5 hover:shadow-lg transition-shadow"
+      className={`bg-white dark:bg-gray-800 rounded-xl shadow-xs border p-5 hover:shadow-lg transition-shadow ${
+        highlighted
+          ? "border-amber-400 ring-2 ring-amber-300 dark:border-amber-600 dark:ring-amber-700"
+          : "border-gray-200 dark:border-gray-700"
+      }`}
     >
       {/* Header */}
       <div className="flex items-start justify-between mb-3">
@@ -254,6 +329,26 @@ function MissionCard({
       {/* Progress */}
       {isActive(mission) && mission.progress > 0 && <MissionProgress progress={mission.progress} />}
 
+      {/* Aviso normal: la misión aún no cumple la verificación */}
+      {pendingDetail && (
+        <div
+          role="status"
+          className="mb-3 rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-800 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-200"
+        >
+          <p className="font-semibold">Aún no puedes completar esta misión</p>
+          <p className="mt-0.5">{pendingDetail}</p>
+          {typeof pendingProgress === "number" && (
+            <p className="mt-1 font-medium">Progreso de verificación: {pendingProgress}%</p>
+          )}
+        </div>
+      )}
+
+      {mission.autoVerify && isActive(mission) && !pendingDetail && (
+        <p className="mb-3 text-xs text-gray-500 dark:text-gray-400">
+          Esta misión se verifica automáticamente al completarla.
+        </p>
+      )}
+
       {/* History Details */}
       {showHistory && mission.studentMissionId && <MissionHistory mission={mission} />}
 
@@ -286,6 +381,7 @@ export default function Misiones() {
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [evidence, setEvidence] = useState<Record<string, string>>({})
+  const [notice, setNotice] = useState<MissionNotice | null>(null)
 
   const fetchMissions = async () => {
     try {
@@ -319,19 +415,25 @@ export default function Misiones() {
       })
 
       if (!response.ok) {
-        const error = await response.json()
-        // El backend para misiones autoVerify devuelve { error, message, progress }
-        // `message` contiene el detalle de verificación (ej: "Te faltan 3 días...")
-        const detail = error.message ? ` ${error.message}` : ""
-        const progressInfo = typeof error.progress === "number" ? ` (progreso: ${error.progress}%)` : ""
-        throw new Error(`${error.error || "Error al procesar misión"}${detail}${progressInfo}`)
+        // El backend para misiones autoVerify devuelve { error, message, progress }.
+        // `message` + `progress` significa "aún no cumple": se muestra como
+        // pestaña informativa, no como error técnico.
+        let payload: { error?: string; message?: string; progress?: number } = {}
+        try {
+          payload = (await response.json()) as typeof payload
+        } catch {
+          payload = { error: "No se pudo procesar la misión" }
+        }
+        setNotice(toMissionNotice(payload, missionId))
+        return
       }
 
+      if (notice?.missionId === missionId) setNotice(null)
       // Recargar misiones
       await fetchMissions()
     } catch (error) {
       console.error("Error:", error)
-      alert(error instanceof Error ? error.message : "Error al procesar la misión")
+      setNotice(toMissionNotice({ error: "Error de conexión. Revisa tu internet e inténtalo de nuevo." }, missionId))
     } finally {
       setActionLoading(null)
     }
@@ -397,6 +499,11 @@ export default function Misiones() {
         </div>
       )}
 
+      {/* Pestaña informativa: misión aún no completable vs error real */}
+      {notice && (
+        <MissionNoticeBanner notice={notice} onClose={() => setNotice(null)} />
+      )}
+
       {/* Filters */}
       <div className="flex items-center gap-2 flex-wrap">
         <Filter className="w-5 h-5 text-gray-400" />
@@ -417,19 +524,25 @@ export default function Misiones() {
 
       {/* Missions Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredMissions.map((mission) => (
-          <MissionCard
-            key={mission.id}
-            mission={mission}
-            showHistory={showHistory}
-            isActionLoading={actionLoading === mission.id}
-            evidenceValue={evidence[mission.id] || ""}
-            onAction={(action) => handleMissionAction(mission.id, action)}
-            onEvidenceChange={(value) =>
-              setEvidence((previous) => ({ ...previous, [mission.id]: value }))
-            }
-          />
-        ))}
+        {filteredMissions.map((mission) => {
+          const pendingForCard = notice?.missionId === mission.id ? notice : null
+          return (
+            <MissionCard
+              key={mission.id}
+              mission={mission}
+              showHistory={showHistory}
+              isActionLoading={actionLoading === mission.id}
+              evidenceValue={evidence[mission.id] || ""}
+              highlighted={pendingForCard?.kind === "pending"}
+              pendingDetail={pendingForCard?.kind === "pending" ? pendingForCard.detail : null}
+              pendingProgress={pendingForCard?.kind === "pending" ? (pendingForCard.progress ?? null) : null}
+              onAction={(action) => handleMissionAction(mission.id, action)}
+              onEvidenceChange={(value) =>
+                setEvidence((previous) => ({ ...previous, [mission.id]: value }))
+              }
+            />
+          )
+        })}
       </div>
 
       {filteredMissions.length === 0 && (

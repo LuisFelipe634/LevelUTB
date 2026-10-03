@@ -105,9 +105,8 @@ async function syncBadges() {
   console.log('🔄 Sincronizando insignias desde fixtures locales...')
   console.log(`📚 Catálogo v${badgeFixtures.catalogVersion} (${badgeFixtures.badges.length} insignias)`)
 
-  // El seed base trae 12 badges legacy con otros nombres; el catálogo canónico
-  // es scripts/badges.json (8). Se eliminan los que no pertenecen al fixture
-  // para no acumular ~20 tras seed + sync.
+  // El catalogo canonico es scripts/badges.json (8). Se eliminan insignias
+  // fuera del fixture para no acumular restos de seeds anteriores.
   const fixtureNames = badgeFixtures.badges.map((b) => b.name)
   const staleBadges = await prisma.badge.findMany({
     where: { name: { notIn: fixtureNames } },

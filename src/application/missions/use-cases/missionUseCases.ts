@@ -105,8 +105,8 @@ export class VerifyMissionUseCase {
 export class AwardPointsUseCase {
   constructor(private readonly missionServiceRepository: MissionServiceRepository) {}
 
-  async execute(userId: string, amount: number, source: string, description: string): Promise<void> {
-    return this.missionServiceRepository.awardPoints(userId, amount, source, description)
+  async execute(userId: string, amount: number, source: string, description: string, referenceKey?: string): Promise<number> {
+    return this.missionServiceRepository.awardPoints(userId, amount, source, description, referenceKey)
   }
 }
 

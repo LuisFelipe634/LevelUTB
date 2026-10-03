@@ -3,6 +3,8 @@ import type { Mission, StudentMission, VerificationProfile, VerificationResult, 
 import type { MissionRepository, StudentMissionRepository, MissionServiceRepository } from "@/domain/missions/repositories/missionRepository"
 import { toMissionDomain, toStudentMissionDomain, toMissionWithStudentStatus } from "@/domain/missions/types"
 import { verifyMission } from "@/domain/missions/missionVerificationService"
+import { getCurrentPeriod } from "@/lib/period"
+import { canAwardMissionPoints } from "@/lib/pointRules"
 
 type DomainVerificationProfile = VerificationProfile
 
@@ -252,15 +254,43 @@ export class PrismaMissionServiceRepository implements MissionServiceRepository 
     return verifyMission(mission, userId, metadata, profile as DomainVerificationProfile)
   }
 
-  async awardPoints(userId: string, amount: number, source: string, description: string): Promise<void> {
-    await prisma.point.create({
-      data: {
-        userId,
-        amount,
-        source: source as "MISION_COMPLETADA",
-        description,
-      },
-    })
+  async awardPoints(userId: string, amount: number, source: string, description: string, referenceKey?: string): Promise<number> {
+    const periodCode = getCurrentPeriod()
+    if (referenceKey) {
+      const existing = await prisma.point.findUnique({ where: { referenceKey }, select: { id: true } })
+      if (existing) return 0
+    }
+
+    const weekStart = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+    const [weekly, period] = await Promise.all([
+      prisma.point.aggregate({
+        where: { userId, source: "MISION_COMPLETADA", periodCode, createdAt: { gte: weekStart } },
+        _sum: { amount: true },
+      }),
+      prisma.point.aggregate({
+        where: { userId, source: "MISION_COMPLETADA", periodCode },
+        _sum: { amount: true },
+      }),
+    ])
+
+    if (!canAwardMissionPoints(amount, weekly._sum.amount || 0, period._sum.amount || 0)) return 0
+
+    const data = {
+      userId,
+      amount,
+      source: source as "MISION_COMPLETADA",
+      periodCode,
+      referenceKey,
+      description,
+    }
+
+    if (referenceKey) {
+      await prisma.point.upsert({ where: { referenceKey }, update: {}, create: data })
+      return amount
+    }
+
+    await prisma.point.create({ data })
+    return amount
   }
 
   async createNotification(userId: string, title: string, message: string, type: string, link: string): Promise<void> {

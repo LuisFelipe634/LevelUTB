@@ -3,10 +3,37 @@ import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
 import { getAverageGrade, getCurrentSemester } from "@/lib/academic"
 import { getBadgeSource } from "@/lib/getBadgeSource"
+import { getAcademicSource, isExternalAcademicEnabled } from "@/lib/getAcademicSource"
+import type { AcademicEnrollment } from "@/lib/academicSource"
 import { getCurrentPeriod } from "@/lib/period"
 
 function currentPeriod() {
   return getCurrentPeriod()
+}
+
+type EffectiveAcademicData = {
+  enrollments: AcademicEnrollment[]
+  academicHistory: { grade: number | null; status?: string; source?: string; credits?: number; course?: { credits?: number } }[]
+  semesters: Array<{ number: number; courses: Array<{ id: string; credits: number }> }>
+}
+
+// Misma fuente efectiva que /api/student y /api/curriculum: si la API
+// academica externa esta habilitada, los agregados se calculan sobre ella.
+// Asi perfil, malla y estadisticas siempre coinciden.
+async function fetchEffectiveAcademicData(
+  userId: string,
+  fallback: { enrollments: EffectiveAcademicData["enrollments"]; academicHistory: EffectiveAcademicData["academicHistory"]; semesters: EffectiveAcademicData["semesters"] }
+): Promise<EffectiveAcademicData> {
+  if (!isExternalAcademicEnabled()) return fallback
+  try {
+    const data = await getAcademicSource().getStudentAcademicData(userId)
+    if (!data.profile) return fallback
+    return { enrollments: data.profile.enrollments, academicHistory: [], semesters: data.profile.program.semesters }
+  } catch (e) {
+    if (e instanceof Error && e.message === "EXTERNAL_API_UNAVAILABLE") throw e
+    console.warn("[api/stats] fuente externa no disponible, usando Prisma:", e instanceof Error ? e.message : e)
+    return fallback
+  }
 }
 
 export async function GET() {
@@ -43,13 +70,19 @@ export async function GET() {
       return NextResponse.json({ error: "Perfil no encontrado" }, { status: 404 })
     }
 
+    const effective = await fetchEffectiveAcademicData(userId, {
+      enrollments: profile.enrollments,
+      academicHistory: profile.academicHistory,
+      semesters: profile.program.semesters,
+    })
+
     const approvedCredits = Array.from(new Map(
-      profile.enrollments
+      effective.enrollments
         .filter((enrollment) => enrollment.status === "APROBADO")
         .map((enrollment) => [enrollment.courseId, enrollment.course.credits])
     ).values()).reduce((total, credits) => total + credits, 0)
-    const currentSemester = getCurrentSemester(profile.enrollments, profile.currentSemester, currentPeriod())
-    const averageGrade = getAverageGrade(profile.academicHistory, profile.enrollments, profile.averageGrade)
+    const currentSemester = getCurrentSemester(effective.enrollments, profile.currentSemester, currentPeriod())
+    const averageGrade = getAverageGrade(effective.academicHistory as Parameters<typeof getAverageGrade>[0], effective.enrollments as Parameters<typeof getAverageGrade>[1], profile.averageGrade)
 
     // Obtener puntos totales
     const points = await prisma.point.groupBy({
@@ -104,7 +137,7 @@ export async function GET() {
     )
 
     // Calcular progreso por categoría de cursos
-    const enrollmentsByType = profile.enrollments.reduce((acc, e) => {
+    const enrollmentsByType = effective.enrollments.reduce((acc, e) => {
       const type = e.course.type || "OBLIGATORIO"
       if (!acc[type]) {
         acc[type] = { total: 0, approved: 0, credits: 0, totalCredits: 0 }
@@ -119,11 +152,11 @@ export async function GET() {
     }, {} as Record<string, { total: number; approved: number; credits: number; totalCredits: number }>)
 
     const approvedCourseIds = new Set(
-      profile.enrollments
+      effective.enrollments
         .filter((enrollment) => enrollment.status === "APROBADO")
         .map((enrollment) => enrollment.courseId)
     )
-    const semesterProgress = profile.program.semesters.map((semester) => {
+    const semesterProgress = effective.semesters.map((semester) => {
       const totalCredits = semester.courses.reduce((total, course) => total + course.credits, 0)
       const approvedCourses = semester.courses.filter((course) => approvedCourseIds.has(course.id))
       const creditsApproved = approvedCourses.reduce((total, course) => total + course.credits, 0)
@@ -145,8 +178,8 @@ export async function GET() {
         creditsApproved: approvedCredits,
         totalCredits: profile.program.totalCredits,
         averageGrade,
-        coursesCompleted: profile.enrollments.filter((e) => e.status === "APROBADO").length,
-        totalCourses: profile.enrollments.length,
+        coursesCompleted: effective.enrollments.filter((e) => e.status === "APROBADO").length,
+        totalCourses: effective.enrollments.length,
         currentSemester,
         totalSemesters: profile.program.totalSemesters,
         gradeTrend

@@ -251,7 +251,7 @@ const verifiers: Record<string, VerificationHandler> = {
     const missions = await prisma.studentMission.findMany({
       where: {
         studentId: context.userId,
-        status: "COMPLETADA",
+        status: { in: ["COMPLETADA", "VERIFICADA"] },
         completedAt: {
           not: null,
         },

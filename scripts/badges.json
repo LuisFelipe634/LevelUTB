@@ -1,5 +1,5 @@
 {
-  "_comment": "Catalogo simulado de insignias institucionales del nuevo modelo UTB.",
+  "_comment": "Catalogo canonico de insignias UTB v2026.3. Fuente unica: scripts/badges.json. Sincronizar a utb-external-api/src/fixtures/badges.json con npm run db:sync-badge-fixtures.",
   "catalogVersion": "2026.3",
   "issuer": "Universidad Tecnologica de Bolivar",
   "badges": [

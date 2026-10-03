@@ -248,19 +248,42 @@ enum AcademicStatus {
 // ============================================
 
 model Point {
-  id          String    @id @default(cuid())
-  userId      String
-  amount      Int
-  source      PointSource
-  description String?
-  createdAt   DateTime  @default(now())
+  id           String      @id @default(cuid())
+  userId       String
+  amount       Int
+  source       PointSource
+  periodCode   String?
+  referenceKey String?     @unique
+  description  String?
+  createdAt    DateTime    @default(now())
 
   user        User      @relation(fields: [userId], references: [id])
 
+  @@index([userId, periodCode])
   @@map("points")
 }
 
+model AcademicPeriod {
+  id          String       @id @default(cuid())
+  code        String       @unique
+  startsAt    DateTime
+  endsAt      DateTime
+  status      PeriodStatus @default(FUTURE)
+  closedAt    DateTime?
+  processedAt DateTime?
+
+  @@map("academic_periods")
+}
+
+enum PeriodStatus {
+  FUTURE
+  ACTIVE
+  EN_CIERRE
+  CLOSED
+}
+
 enum PointSource {
+  PUNTOS_BASE_SEMESTRAL
   MISION_COMPLETADA
   RENDIMIENTO_ACADEMICO
   MEJORA_PROMEDIO
@@ -268,6 +291,8 @@ enum PointSource {
   IMPACTO_SOCIAL
   EVENTO_ESPECIAL
   CANJE_RECOMPENSA
+  REVERSO_CANJE
+  AJUSTE_ACADEMICO
 }
 
 model Mission {

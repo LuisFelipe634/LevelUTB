@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma"
 import { getAverageGrade, getCurrentSemester } from "@/lib/academic"
 import { requireRole, jsonUnauthorized, jsonForbidden } from "@/lib/session"
 import { getBadgeSource } from "@/lib/getBadgeSource"
+import { getCurrentPeriod } from "@/lib/period"
+import { canAwardMissionPoints } from "@/lib/pointRules"
 
 export async function GET() {
   const session = await requireRole("TEACHER")
@@ -301,6 +303,8 @@ export async function PATCH(request: Request) {
     }
 
     const approved = decision === "approve"
+    const periodCode = getCurrentPeriod()
+    let awardedPoints = 0
     await prisma.$transaction(async (transaction) => {
       await transaction.studentMission.update({
         where: { id: studentMissionId },
@@ -313,11 +317,40 @@ export async function PATCH(request: Request) {
       })
 
       if (approved) {
-        await transaction.point.create({
-          data: { userId: studentMission.studentId, amount: studentMission.mission.pointsReward, source: "MISION_COMPLETADA", description: `Misión verificada: ${studentMission.mission.title}` }
-        })
+        const referenceKey = `MISSION:${studentMission.studentId}:${studentMission.missionId}:${periodCode}`
+        const existingPoint = await transaction.point.findUnique({ where: { referenceKey }, select: { id: true } })
+        const [weekly, period] = await Promise.all([
+          transaction.point.aggregate({
+            where: { userId: studentMission.studentId, source: "MISION_COMPLETADA", periodCode, createdAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } },
+            _sum: { amount: true },
+          }),
+          transaction.point.aggregate({
+            where: { userId: studentMission.studentId, source: "MISION_COMPLETADA", periodCode },
+            _sum: { amount: true },
+          }),
+        ])
+        awardedPoints = existingPoint
+          ? 0
+          : canAwardMissionPoints(studentMission.mission.pointsReward, weekly._sum.amount || 0, period._sum.amount || 0)
+            ? studentMission.mission.pointsReward
+            : 0
+
+        if (awardedPoints > 0) {
+          await transaction.point.upsert({
+            where: { referenceKey },
+            update: {},
+            create: {
+              userId: studentMission.studentId,
+              amount: studentMission.mission.pointsReward,
+              source: "MISION_COMPLETADA",
+              periodCode,
+              referenceKey,
+              description: `Misión verificada: ${studentMission.mission.title}`,
+            },
+          })
+        }
         await transaction.activity.create({
-          data: { userId: studentMission.studentId, action: "MISION_VERIFICADA", details: { missionId: studentMission.missionId, reviewedBy: teacherUserId, pointsEarned: studentMission.mission.pointsReward } }
+          data: { userId: studentMission.studentId, action: "MISION_VERIFICADA", details: { missionId: studentMission.missionId, reviewedBy: teacherUserId, pointsEarned: awardedPoints } }
         })
       }
 
@@ -327,7 +360,9 @@ export async function PATCH(request: Request) {
           title: approved ? "Misión verificada" : "Misión devuelta para revisión",
           message: (() => {
             if (approved) {
-              return `Tu misión «${studentMission.mission.title}» fue aprobada y ganaste ${studentMission.mission.pointsReward} puntos.`
+              return awardedPoints > 0
+                ? `Tu misión «${studentMission.mission.title}» fue aprobada y ganaste ${awardedPoints} puntos.`
+                : `Tu misión «${studentMission.mission.title}» fue aprobada, pero alcanzaste el límite de puntos de misiones del periodo.`
             }
             const commentText = typeof comment === "string" && comment.trim() ? ` Comentario: ${comment.trim()}` : ""
             return `Tu misión «${studentMission.mission.title}» necesita ajustes.${commentText}`

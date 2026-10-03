@@ -105,7 +105,9 @@ export class HttpAcademicSource implements AcademicSource {
 
     const sortedSemesters = Array.from(semestersMap.values()).sort((a, b) => a.number - b.number)
 
-    // Mapear enrollments a shape AcademicEnrollment (courseId = code)
+    // Mapear enrollments a shape AcademicEnrollment (courseId = code).
+    // El tipo de curso se resuelve por join con el catalogo para que los
+    // agregados por categoria (stats/malla) coincidan con Prisma.
     const academicEnrollments: import("@/lib/academicSource").AcademicEnrollment[] = enrollments.map((e) => ({
       courseId: e.courseCode,
       course: {
@@ -113,6 +115,7 @@ export class HttpAcademicSource implements AcademicSource {
         code: e.courseCode,
         name: e.courseName,
         credits: e.credits,
+        type: courseByCode.get(e.courseCode)?.type ?? null,
         semester: { number: e.semester },
       },
       status: e.status,

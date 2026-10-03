@@ -10,6 +10,7 @@ import {
   getCreateNotificationUseCase,
   buildStartMetadata,
 } from "@/application/missions/missionFactory"
+import { getCurrentPeriod } from "@/lib/period"
 
 type StudentSession = { userId: string } | { error: NextResponse }
 
@@ -69,7 +70,10 @@ export async function GET() {
     const result = await getMissionsUseCase.execute(userId, studentProfile.level)
 
     return NextResponse.json({
-      missions: result.missions,
+      missions: result.missions.map(({ pointsReward, ...mission }) => ({
+        ...mission,
+        points: pointsReward,
+      })),
       stats: result.stats,
     })
   } catch (error) {
@@ -265,13 +269,15 @@ async function completeMission(
     verification.value ? { passed: true, progress: 100, message: verification.value } : null
   )
 
+  let awardedPoints = 0
   if (mission.autoVerify) {
     const awardPointsUseCase = getAwardPointsUseCase()
-    await awardPointsUseCase.execute(
+    awardedPoints = await awardPointsUseCase.execute(
       userId,
       mission.pointsReward,
       "MISION_COMPLETADA",
-      `Misión completada: ${mission.title}`
+      `Misión completada: ${mission.title}`,
+      `MISSION:${userId}:${mission.id}:${getCurrentPeriod()}`
     )
   }
 
@@ -280,7 +286,9 @@ async function completeMission(
     userId,
     mission.autoVerify ? "Misión completada" : "Misión enviada a revisión",
     mission.autoVerify
-      ? `Completaste «${mission.title}» y ganaste ${mission.pointsReward} puntos.`
+      ? awardedPoints > 0
+        ? `Completaste «${mission.title}» y ganaste ${awardedPoints} puntos.`
+        : `Completaste «${mission.title}», pero alcanzaste el límite de puntos de misiones del periodo.`
       : `Tu evidencia para «${mission.title}» será revisada por un docente.`,
     mission.autoVerify ? "LOGRO_OBTENIDO" : "INFO",
     "/misiones"

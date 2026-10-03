@@ -29,12 +29,8 @@ const ASSIGNED_COURSE_CODES = ['H01A', 'M01A', 'C02A', 'C04A']
 // cualquier canje de otra materia no le debe aparecer.
 const SECOND_TEACHER_COURSE_CODE = 'C04A'
 
-// Materias que Juan Perez aprueba en el periodo actual para que la mision
-// "Aprobar 6 creditos este semestre" (verificacion automatica) se pueda completar.
-const CURRENT_APPROVED_CODES = ['C05A', 'C06A']
-// Notas fijas por curso (no aleatorias): el seed queda reproducible y el mismo
-// en cada `db:reset`.
-const CURRENT_APPROVED_GRADES: Record<string, number> = { C05A: 4.3, C06A: 3.8 }
+// Notas fijas para la historia demo (no aleatorias): el seed queda reproducible
+// y el mismo en cada `db:reset`.
 const DEMO_HISTORY_GRADES = [4.2, 4.5, 3.9, 4.1, 4.4, 4.0]
 
 type CourseType = 'OBLIGATORIO' | 'ELECTIVA' | 'LIBRE_ELECCION' | 'GENERAL'
@@ -89,133 +85,99 @@ type BadgeSeed = {
 
 const BADGES_DATA: BadgeSeed[] = [
   {
-    code: 'UTB-PROG-01',
-    name: 'Primer Semestre',
-    description: 'Aprobaste tu primer semestre completo en la UTB.',
-    iconUrl: '🎓',
+    code: 'UTB-CS-01',
+    name: 'Core Skills',
+    description: 'Reconocimiento por el desarrollo de competencias fundamentales.',
+    iconUrl: 'CS',
     category: 'PROGRESO',
     requiredLevel: 1,
     pointsRequired: null,
   },
   {
-    code: 'UTB-PROG-02',
-    name: 'Medio Camino',
-    description: 'Alcanzaste la mitad de los creditos de tu programa.',
-    iconUrl: '🛤️',
+    code: 'UTB-CS-PLUS-01',
+    name: 'Core Skills Plus',
+    description: 'Reconocimiento avanzado por competencias fundamentales.',
+    iconUrl: 'CSP',
     category: 'PROGRESO',
     requiredLevel: 3,
-    pointsRequired: 1500,
-  },
-  {
-    code: 'UTB-PROG-03',
-    name: 'Cerca de Graduarse',
-    description: 'Te faltan 20 creditos o menos para graduarte.',
-    iconUrl: '🏁',
-    category: 'PROGRESO',
-    requiredLevel: 5,
-    pointsRequired: 5000,
-  },
-  {
-    code: 'UTB-REND-01',
-    name: 'Promedio Impresionante',
-    description: 'Mantuviste un promedio ponderado igual o superior a 4.5.',
-    iconUrl: '⭐',
-    category: 'RENDIMIENTO',
-    requiredLevel: 2,
     pointsRequired: null,
   },
   {
-    code: 'UTB-REND-02',
-    name: 'Pulso Ascendente',
-    description: 'Mejoraste tu promedio en 0.5 puntos o mas respecto al inicio del periodo.',
-    iconUrl: '📈',
-    category: 'RENDIMIENTO',
+    code: 'UTB-PS-01',
+    name: 'Power Skills',
+    description: 'Reconocimiento por el desarrollo de habilidades de crecimiento personal.',
+    iconUrl: 'PS',
+    category: 'HABITO',
+    requiredLevel: 1,
+    pointsRequired: null,
+  },
+  {
+    code: 'UTB-PS-PLUS-01',
+    name: 'Power Skills Plus',
+    description: 'Reconocimiento avanzado por habilidades de crecimiento personal.',
+    iconUrl: 'PSP',
+    category: 'HABITO',
     requiredLevel: 3,
-    pointsRequired: 1200,
-  },
-  {
-    code: 'UTB-REND-03',
-    name: 'Sin Reprobados',
-    description: 'Cerraste un semestre completo sin registrar ninguna materia reprobada.',
-    iconUrl: '🎯',
-    category: 'RENDIMIENTO',
-    requiredLevel: 1,
     pointsRequired: null,
   },
   {
-    code: 'UTB-HAB-01',
-    name: 'Racha de 7 Dias',
-    description: 'Registraste actividad academica durante 7 dias consecutivos.',
-    iconUrl: '🔥',
-    category: 'HABITO',
-    requiredLevel: 2,
-    pointsRequired: 800,
-  },
-  {
-    code: 'UTB-HAB-02',
-    name: 'Estudiante Constante',
-    description: 'Completaste 3 o mas misiones en una misma semana.',
-    iconUrl: '🗓️',
-    category: 'HABITO',
-    requiredLevel: 2,
-    pointsRequired: 700,
-  },
-  {
-    code: 'UTB-COMP-01',
-    name: 'Explorador de la Malla',
-    description: 'Revisaste el catalogo de cursos de al menos tres semestres.',
-    iconUrl: '🧭',
-    category: 'COMPETENCIA',
-    requiredLevel: 1,
-    pointsRequired: null,
-  },
-  {
-    code: 'UTB-COMP-02',
-    name: 'Planificador',
-    description: 'Planeaste tu proximo semestre sin superar el tope de creditos.',
-    iconUrl: '📋',
-    category: 'COMPETENCIA',
-    requiredLevel: 2,
-    pointsRequired: 600,
-  },
-  {
-    code: 'UTB-SOC-01',
-    name: 'Impacto Social',
-    description: 'Completaste una mision de impacto social en tu comunidad.',
-    iconUrl: '🤝',
+    code: 'UTB-LU-01',
+    name: 'Lideres UTB',
+    description: 'Reconocimiento por liderazgo y participacion en la comunidad UTB.',
+    iconUrl: 'LU',
     category: 'IMPACTO_SOCIAL',
-    requiredLevel: 3,
-    pointsRequired: 1000,
+    requiredLevel: 1,
+    pointsRequired: null,
   },
   {
-    code: 'UTB-SOC-02',
-    name: 'Liderazgo',
-    description: 'Ayudaste a al menos dos companeros a desbloquear una insignia.',
-    iconUrl: '🌟',
+    code: 'UTB-LU-PLUS-01',
+    name: 'Lideres UTB Plus',
+    description: 'Reconocimiento avanzado por liderazgo e impacto institucional.',
+    iconUrl: 'LUP',
     category: 'IMPACTO_SOCIAL',
     requiredLevel: 4,
-    pointsRequired: 2000,
+    pointsRequired: null,
+  },
+  {
+    code: 'UTB-CP-01',
+    name: 'Conexiones Profesionales',
+    description: 'Reconocimiento por la construccion de conexiones profesionales.',
+    iconUrl: 'CP',
+    category: 'COMPETENCIA',
+    requiredLevel: 1,
+    pointsRequired: null,
+  },
+  {
+    code: 'UTB-CP-PLUS-01',
+    name: 'Conexiones Profesionales Plus',
+    description: 'Reconocimiento avanzado por conexiones profesionales.',
+    iconUrl: 'CPP',
+    category: 'COMPETENCIA',
+    requiredLevel: 4,
+    pointsRequired: null,
   },
 ]
 
 // Insignias ya obtenidas por cada estudiante demo, por studentCode. Se dejan
 // bloqueadas algunas a proposito para que /logros muestre ambos estados.
+// Catalogo canonico: scripts/badges.json v2026.3 (8 insignias).
 const AWARDED_BADGES_BY_STUDENT: Record<string, Array<{ code: string; daysAgo: number; evidence: string | null }>> = {
   '2019123456': [
-    { code: 'UTB-PROG-01', daysAgo: 420, evidence: null },
-    { code: 'UTB-REND-01', daysAgo: 180, evidence: 'Promedio ponderado 4.2 sobre 40 creditos oficializados.' },
-    { code: 'UTB-REND-03', daysAgo: 60, evidence: null },
-    { code: 'UTB-COMP-01', daysAgo: 30, evidence: null },
-    { code: 'UTB-COMP-02', daysAgo: 12, evidence: 'Seleccion de 16 creditos para el proximo periodo.' },
+    { code: 'UTB-CS-01', daysAgo: 258, evidence: 'Competencias fundamentales desarrolladas.' },
+    { code: 'UTB-CS-PLUS-01', daysAgo: 199, evidence: 'Nivel avanzado de competencias fundamentales.' },
+    { code: 'UTB-PS-01', daysAgo: 176, evidence: 'Habilidades de crecimiento personal demostradas.' },
+    { code: 'UTB-LU-01', daysAgo: 134, evidence: 'Participacion en la comunidad UTB.' },
+    { code: 'UTB-CP-01', daysAgo: 113, evidence: 'Conexion profesional registrada.' },
   ],
   '2020123456': [
-    { code: 'UTB-PROG-01', daysAgo: 380, evidence: null },
-    { code: 'UTB-PROG-02', daysAgo: 90, evidence: null },
-    { code: 'UTB-HAB-01', daysAgo: 45, evidence: null },
-    { code: 'UTB-COMP-01', daysAgo: 20, evidence: null },
+    { code: 'UTB-CS-01', daysAgo: 231, evidence: 'Competencias fundamentales desarrolladas.' },
+    { code: 'UTB-PS-01', daysAgo: 184, evidence: 'Habilidades de crecimiento personal demostradas.' },
+    { code: 'UTB-PS-PLUS-01', daysAgo: 123, evidence: 'Nivel avanzado de habilidades personales.' },
+    { code: 'UTB-LU-01', daysAgo: 86, evidence: 'Liderazgo en actividad institucional.' },
   ],
   '2021123456': [
-    { code: 'UTB-PROG-01', daysAgo: 200, evidence: null },
+    { code: 'UTB-CS-01', daysAgo: 209, evidence: 'Competencias fundamentales desarrolladas.' },
+    { code: 'UTB-CP-01', daysAgo: 140, evidence: 'Conexion profesional registrada.' },
   ],
 }
 
@@ -404,26 +366,26 @@ const REWARDS_DATA: RewardSeed[] = [
 ]
 
 const MISSIONS_DATA: MissionSeed[] = [
-  { title: 'Planificar Próximo Semestre', description: 'Selecciona materias disponibles sin superar 18 créditos.', type: 'PLANIFICACION', pointsReward: 150, autoVerify: true },
-  { title: 'Explorar tu Malla', description: 'Consulta materias de al menos tres semestres.', type: 'ACADEMICO', pointsReward: 50, autoVerify: true },
-  { title: 'Revisar tu Progreso', description: 'Consulta tus estadísticas académicas de la semana.', type: 'ACADEMICO', pointsReward: 50, autoVerify: true },
-  { title: 'Constancia Académica', description: 'Ingresa a la plataforma cuatro días diferentes durante la semana.', type: 'HABITO_ESTUDIO', pointsReward: 100, autoVerify: true },
-  { title: 'Completar un Quiz', description: 'Obtén al menos 70% en un cuestionario académico.', type: 'ACADEMICO', pointsReward: 100, autoVerify: true },
-  { title: 'Mantener una racha de 7 días accediendo', description: 'Registra diariamente una actividad con action = LOGIN o PAGE_VIEW:/dashboard y comprueba 7 días consecutivos.', type: 'HABITO_ESTUDIO', pointsReward: 200, autoVerify: true, verificationKey: 'RACHA_7_DIAS_ACCESO' },
-  { title: 'Completar 3 misiones en una semana', description: 'Cuenta los registros de StudentMission con status = COMPLETADA dentro de una ventana de 7 días.', type: 'MEJORA_CONTINUA', pointsReward: 250, autoVerify: true, verificationKey: 'COMPLETAR_3_MISIONES_SEMANA' },
-  { title: 'Revisar las notificaciones pendientes', description: 'Verifica que el número de notificaciones con isRead = false sea igual a 0.', type: 'HABITO_ESTUDIO', pointsReward: 150, autoVerify: true, verificationKey: 'SIN_NOTIFICACIONES_PENDIENTES' },
-  // Misiones académicas con verificación automática real
-  { title: 'Aprobar 6 créditos este semestre', description: 'Aprueba al menos 6 créditos durante el período académico actual.', type: 'ACADEMICO', pointsReward: 200, autoVerify: true, verificationKey: 'APROBAR_CREDITOS_SEMESTRE', verificationValue: '6' },
-  { title: 'Mejorar tu promedio en 0.5 puntos', description: 'Sube tu promedio ponderado al menos 0.5 puntos respecto al inicio del período.', type: 'ACADEMICO', pointsReward: 250, autoVerify: true, verificationKey: 'MEJORAR_PROMEDIO', verificationValue: '0.5' },
-  { title: 'Cero reprobados en el semestre', description: 'No registrar ninguna materia reprobada en el semestre actual.', type: 'ACADEMICO', pointsReward: 200, autoVerify: true, verificationKey: 'CERO_REPROBADOS' },
-  { title: 'Completar prerrequisitos de Programación Orientada a Objetos', description: 'Aprueba todos los prerrequisitos del curso C04A para poder cursarlo.', type: 'PLANIFICACION', pointsReward: 150, autoVerify: true, verificationKey: 'COMPLETAR_PREREQUISITOS', verificationValue: 'C04A' },
-  { title: 'Avanzar al siguiente semestre', description: 'Acumula los créditos necesarios (12 por semestre cursado) para avanzar de semestre.', type: 'ACADEMICO', pointsReward: 180, autoVerify: true, verificationKey: 'AVANZAR_SEMESTRE' },
+  { title: 'Primer recorrido', description: 'Visita el Dashboard, Perfil, Malla, Misiones y Recompensas.', type: 'PLANIFICACION', pointsReward: 10, autoVerify: true },
+  { title: 'Conoce tu perfil', description: 'Completa los datos principales de tu perfil académico.', type: 'PLANIFICACION', pointsReward: 15, autoVerify: true },
+  { title: 'Descubre tus misiones', description: 'Consulta la lista de misiones y abre el detalle de una misión.', type: 'PLANIFICACION', pointsReward: 5, autoVerify: true },
+  { title: 'Revisa tus logros', description: 'Consulta la sección de logros o insignias.', type: 'PLANIFICACION', pointsReward: 5, autoVerify: true },
+  { title: 'Conoce las recompensas', description: 'Explora el catálogo y consulta una recompensa.', type: 'PLANIFICACION', pointsReward: 5, autoVerify: true },
+  { title: 'Encuentra un docente', description: 'Busca y consulta el perfil de un docente.', type: 'PLANIFICACION', pointsReward: 10, autoVerify: true },
+  { title: 'Consulta tus estadísticas', description: 'Abre estadísticas y revisa tu avance académico.', type: 'ACADEMICO', pointsReward: 5, autoVerify: true },
+  { title: 'Descubre una recomendación', description: 'Abre una recomendación académica personalizada.', type: 'PLANIFICACION', pointsReward: 5, autoVerify: true },
+  { title: 'Explorador universitario', description: 'Visita los ocho módulos principales de LevelUTB.', type: 'PLANIFICACION', pointsReward: 30, autoVerify: true },
+  { title: 'Ruta del estudiante', description: 'Consulta perfil, malla, misiones, logros y recompensas.', type: 'PLANIFICACION', pointsReward: 25, autoVerify: true },
+  { title: 'Conoce tu carrera', description: 'Explora diez áreas diferentes de la malla curricular.', type: 'ACADEMICO', pointsReward: 40, autoVerify: true },
+  { title: 'Cazador de oportunidades', description: 'Revisa recomendaciones, misiones y recompensas.', type: 'PLANIFICACION', pointsReward: 20, autoVerify: true },
+  { title: 'Planifica tu semestre', description: 'Consulta asignaturas, prerrequisitos y recomendaciones.', type: 'PLANIFICACION', pointsReward: 40, autoVerify: true },
 ]
 
 // El orden de escritura importa: el upsert de la historia de Angela al final
 // actualiza la matricula de C04A en el periodo actual que crea el bloque docente.
 async function main() {
   await cleanDatabase()
+  await seedAcademicPeriods()
 
   const program = await createCurriculum()
   await createCatalog()
@@ -437,7 +399,7 @@ async function main() {
     studentCode: '2019123456',
     currentSemester: DEMO_CURRENT_SEMESTER,
     admissionYear: 2019,
-    totalCredits: 95,
+    totalCredits: 79,
     averageGrade: 4.2,
     level: 3,
     logMessage: '✅ Usuario demo creado:',
@@ -463,13 +425,12 @@ async function main() {
     studentCode: '2021123456',
     currentSemester: ANGELA_CURRENT_SEMESTER,
     admissionYear: 2021,
-    totalCredits: 60,
+    totalCredits: 32,
     averageGrade: 4.7,
     level: 4,
     logMessage: '✅ Estudiante Angela Lemus creada:',
   })
   await seedThirdStudentHistory(angela.profileId, program.id)
-  await approveCurrentCredits(juan.profileId)
 
   // Las insignias se siembran al final: el awarding se resuelve por studentCode,
   // asi que los tres perfiles de arriba ya tienen que existir.
@@ -508,6 +469,7 @@ async function main() {
 }
 
 async function cleanDatabase() {
+  await prisma.academicPeriod.deleteMany()
   await prisma.studentReward.deleteMany()
   await prisma.reward.deleteMany()
   await prisma.activity.deleteMany()
@@ -532,6 +494,18 @@ async function cleanDatabase() {
   await prisma.course.deleteMany()
   await prisma.semester.deleteMany()
   await prisma.program.deleteMany()
+}
+
+async function seedAcademicPeriods() {
+  const year = new Date().getFullYear()
+  const currentStart = new Date(year, currentSemester === 1 ? 0 : 6, 1)
+  const currentEnd = new Date(year, currentSemester === 1 ? 6 : 12, 0, 23, 59, 59, 999)
+
+  await prisma.academicPeriod.upsert({
+    where: { code: CURRENT_PERIOD },
+    update: { startsAt: currentStart, endsAt: currentEnd, status: 'ACTIVE' },
+    create: { code: CURRENT_PERIOD, startsAt: currentStart, endsAt: currentEnd, status: 'ACTIVE' },
+  })
 }
 
 async function createCurriculum() {
@@ -806,14 +780,6 @@ async function linkCurrentEnrollments(
         if (!course) return Promise.resolve()
         return enrollIfMissing(student!.id, course.id, 'CURSANDO')
       })
-  )
-}
-
-async function approveCurrentCredits(studentId: string) {
-  const courses = await prisma.course.findMany({ where: { code: { in: CURRENT_APPROVED_CODES } } })
-
-  await Promise.all(
-    courses.map((course) => enrollIfMissing(studentId, course.id, 'APROBADO', CURRENT_APPROVED_GRADES[course.code] ?? 4.0))
   )
 }
 

@@ -42,7 +42,7 @@ Next.js App Router (src/app/layout.tsx -> AppShell -> Sidebar/Header)
   src/lib/* (academic, recommendations, streak, activity, missionVerification)
         |
         v
-  Prisma Client (src/lib/prisma.ts) -> PostgreSQL (24 modelos)
+  Prisma Client (src/lib/prisma.ts) -> PostgreSQL (25 modelos)
 ```
 
 ### Capas del backend
@@ -52,9 +52,12 @@ Next.js App Router (src/app/layout.tsx -> AppShell -> Sidebar/Header)
 | Guard global | `src/middleware.ts` | Deja pasar `/login`, `/api/auth`, estáticos; si no hay cookie de sesión redirige a `/login?callbackUrl=...`. Cada API además valida JSON. |
 | Sesión/roles | `src/lib/auth.ts`, `src/lib/session.ts` | `auth()`, `requireRole("STUDENT"\|"TEACHER")`, `jsonUnauthorized`, `jsonForbidden`. Login solo `@utb.edu.co`. |
 | Rutas HTTP | `src/app/api/**/route.ts` | Validan entrada, rol y responden JSON. Ver `src/app/api/README.md`. |
-| Dominio | `src/lib/` | `academic.ts` (promedio, semestre actual, tope créditos), `recommendations.ts`, `streak.ts`, `activity.ts` (`ACTIVITY_ACTIONS`, racha diaria), `missionRules.ts` + `missionVerification.ts` (auto-verificación), `getBadgeSource.ts` (origen del catálogo de insignias), `period.ts` (períodos académicos centralizados). |
+| Aplicación | `src/application/` | Casos de uso + factorías (`missionFactory`, `rewardFactory`) y DTOs. Orquesta dominio e infraestructura. |
+| Dominio | `src/domain/` | Reglas puras: `missions/missionRules.ts` + `missionVerificationService.ts`, `rewards/rewardRules.ts`, tipos y puertos (repositorios). |
+| Infraestructura | `src/infrastructure/` | Adaptadores Prisma (`prismaMissionRepository`, `prismaRewardRepository`). |
+| Soporte | `src/lib/` | `academic.ts` (promedio, semestre actual, tope créditos), `recommendations.ts`, `streak.ts`, `activity.ts` (`ACTIVITY_ACTIONS`, racha diaria), `getBadgeSource.ts` / `getAcademicSource.ts` (origen externo del catálogo y datos académicos), `period.ts` (períodos académicos centralizados), `pointRules.ts` (topes de puntos), `missionUi.ts` (avisos de misión). |
 | Persistencia | `src/lib/prisma.ts` | Singleton `PrismaClient` + `PrismaPg`. En dev se reutiliza vía `globalThis`. |
-| Modelo | `prisma/schema.prisma` | 24 modelos: usuarios, malla, progreso, gamificación, recompensas, notificaciones, riesgo. |
+| Modelo | `prisma/schema.prisma` | 25 modelos: usuarios, malla, progreso, gamificación, recompensas, notificaciones, riesgo. |
 | Datos | `prisma/seed.ts` | Seed base (programa ISCO 2019, 10 semestres, 55 cursos, 162 créditos, niveles, misiones, recompensas y usuarios demo). |
 
 ### Catálogo de APIs
@@ -63,8 +66,8 @@ Next.js App Router (src/app/layout.tsx -> AppShell -> Sidebar/Header)
 |---|---|---|---|
 | `/api/auth/[...nextauth]` | GET, POST | público | Login/logout NextAuth Credentials. |
 | `/api/curriculum` | GET, POST | STUDENT | GET malla por semestre con estado (aprobado/en curso/bloqueado/disponible), prerrequisitos y créditos. POST selección de cursos del periodo. |
-| `/api/stats` | GET | STUDENT | Créditos aprobados/totales, promedio (`academic.ts`), avance por semestre, puntos/nivel, tendencia e insignias obtenidas. |
-| `/api/missions` | GET, POST | STUDENT | GET disponibles (por `level`) + estado del estudiante. POST crear/avanzar con `evidence`; si `autoVerify` usa `missionVerification.ts`, si no queda `EN_REVISION`. |
+| `/api/stats` | GET | STUDENT | Usa la misma fuente académica efectiva que perfil/malla (externa si `UNIVERSITY_API_ENABLED="true"`, Prisma como fallback): créditos aprobados/totales, promedio (`academic.ts`), avance por semestre y categoría, puntos/nivel, tendencia e insignias obtenidas. |
+| `/api/missions` | GET, POST | STUDENT | GET disponibles (por `level`) + estado del estudiante. POST crear/avanzar con `evidence`; si `autoVerify` usa `domain/missionVerificationService.ts` (vía `prismaMissionRepository`), si no queda `EN_REVISION`. El catálogo actual son 13 misiones de onboarding (`PLANIFICACION`/`ACADEMICO`), todas `autoVerify` sin `verificationKey`. |
 | `/api/rewards` | GET, POST | STUDENT | GET catálogo activo + puntos totales + canjes + cursos del periodo actual para elegir `courseId`. POST solicitar canje `{ rewardId, courseId }` (descuenta puntos, estado `SOLICITADO`). |
 | `/api/badges` | GET | STUDENT | Catálogo de insignias para el panel de tarjetas base y Plus. El origen se resuelve con `getBadgeSource()` y la respuesta incluye `origin{source, catalogVersion, degraded}`. |
 | `/api/notifications` | GET, PATCH, DELETE | ambos | Listar, marcar leída (`isRead`), borrar. Tipos: `INFO, WARNING, ALERTA_RIESGO, LOGRO_OBTENIDO, MISION_DISPONIBLE, RECORDATORIO, SOLICITUD_RECOMPENSA`. |
@@ -85,7 +88,7 @@ Detalle de flujos y cómo añadir endpoints: ver `src/app/api/README.md`.
 
 - **Dashboard**: puntos, nivel, racha, misiones activas, insignias recientes, notificaciones y alertas.
 - **Malla interactiva**: por semestre con estado por prerrequisitos, créditos aprobados vs totales y selección de materias del periodo.
-- **Misiones**: tipos `ACADEMICO, PLANIFICACION, MEJORA_CONTINUA, HABITO_ESTUDIO, IMPACTO_SOCIAL`. Manuales con evidencia + revisión docente, o automáticas (`verificationKey/Value`: créditos, promedio, racha) vía `missionVerification.ts`. Estados: `PENDIENTE → EN_PROGRESO → EN_REVISION → COMPLETADA/VERIFICADA/RECHAZADA`.
+- **Misiones**: tipos `ACADEMICO, PLANIFICACION, MEJORA_CONTINUA, HABITO_ESTUDIO, IMPACTO_SOCIAL`. El catálogo actual trae 13 misiones de onboarding (`PLANIFICACION`/`ACADEMICO`, todas `autoVerify`); las manuales con evidencia quedan `EN_REVISION` para el docente y el motor de verificación vive en `src/domain/missions/missionVerificationService.ts`. Estados: `PENDIENTE → EN_PROGRESO → EN_REVISION → COMPLETADA/VERIFICADA/RECHAZADA`.
 - **Insignias**: panel visual con tarjetas de Core Skills, Power Skills, Líderes UTB y Conexiones Profesionales, incluyendo sus variantes Plus. El catálogo se sirve desde la API externa.
 - **Recompensas**: canje de puntos por bonificaciones (`EXAMEN, ASISTENCIA, ENTREGA, OTRO`) atadas a un `courseId` del periodo actual. Flujo `SOLICITADO → APROBADO/RECHAZADO → USADO/EXPIRADO`. Página `/recompensas`.
 - **Recomendaciones**: cuello de botella, reprobadas, electivas, ruta del próximo semestre, promedio < 3.5, rellenar créditos.
@@ -108,7 +111,7 @@ Detalle de flujos y cómo añadir endpoints: ver `src/app/api/README.md`.
 
 ### Puntos (`Point.source`)
 
-`MISION_COMPLETADA, RENDIMIENTO_ACADEMICO, MEJORA_PROMEDIO, CONSISTENCIA, IMPACTO_SOCIAL, EVENTO_ESPECIAL`.
+`PUNTOS_BASE_SEMESTRAL, MISION_COMPLETADA, RENDIMIENTO_ACADEMICO, MEJORA_PROMEDIO, CONSISTENCIA, IMPACTO_SOCIAL, EVENTO_ESPECIAL, CANJE_RECOMPENSA, REVERSO_CANJE, AJUSTE_ACADEMICO`. Los movimientos de misión usan `referenceKey` idempotente (`MISSION:{userId}:{missionId}:{periodo}`) y `periodCode` (`AcademicPeriod`, estados `FUTURE/ACTIVE/EN_CIERRE/CLOSED`).
 
 ### Niveles (`Level`, seed en `prisma/seed.ts`)
 
@@ -123,7 +126,7 @@ Detalle de flujos y cómo añadir endpoints: ver `src/app/api/README.md`.
 
 ### Insignias (`Badge.category`)
 
-`Insignias obtenidas por la participacion de talleres y actividades bajo la RUTA DE AUTONOMIA Y EXITO PROFESIONAL`.
+Catálogo canónico `scripts/badges.json` v2026.3 (8 insignias): Core Skills, Power Skills, Líderes UTB y Conexiones Profesionales, cada una con variante Plus. Categorías: `PROGRESO, COMPETENCIA, HABITO, IMPACTO_SOCIAL` (el enum incluye además `RENDIMIENTO`). Fuente única sincronizable con `npm run db:sync-badge-fixtures` hacia `utb-external-api/src/fixtures/badges.json`.
 
 ### Misiones (`Mission.type`)
 
@@ -143,18 +146,52 @@ Motor `src/lib/recommendations.ts`: prerrequisitos que más desbloquean (alta), 
 
 ---
 
+## Cómo funciona el sistema de misiones, puntos y recompensas
+
+### La idea general
+
+El sistema convierte el avance académico en un juego con tres piezas que se alimentan entre sí: las **misiones** son lo que el estudiante hace, los **puntos** son la recompensa y las **recompensas** son en qué se gastan esos puntos. Todo gira alrededor del periodo académico vigente (por ejemplo `2026-2`): puntos y topes se calculan por periodo para que cada semestre empiece con reglas claras.
+
+### Las misiones: dos formas de ganar
+
+Hay 13 misiones de onboarding (recorrer el dashboard, conocer la malla, planificar el semestre…). Todas son **automáticas**: al completarlas, el sistema las aprueba solo y entrega los puntos al instante, sin intervención humana.
+
+El sistema también soporta misiones **manuales** para el futuro: el estudiante adjunta evidencia, la misión queda *en revisión* y un docente la aprueba o la devuelve con un comentario. Solo lo aprobado por el docente entrega puntos. Hoy el catálogo no trae de estas, pero el mecanismo ya existe (estados `PENDIENTE → EN_PROGRESO → EN_REVISION → COMPLETADA/VERIFICADA/RECHAZADA`).
+
+### Los puntos: justos y sin trampa
+
+Cada punto guarda *de dónde vino* (`MISION_COMPLETADA`, `PUNTOS_BASE_SEMESTRAL`, `CANJE_RECOMPENSA`…). Los de misión llevan además una **llave única por estudiante, misión y periodo**: si el estudiante reintenta o hay un error de red, el sistema detecta la llave repetida y no duplica puntos.
+
+Para que nadie acumule todo de una vez, hay **topes**: 300 puntos de misión por semana y 1500 por periodo. Pasado el tope, el sistema simplemente no otorga más hasta el siguiente ciclo.
+
+Además de las misiones, al cerrar cada semestre el estudiante recibe **puntos base (100) más 20 por cada crédito aprobado** (tope 300). El **nivel** (Novato → Leyenda) no se guarda: se recalcula en cada consulta a partir de los puntos reales, así que perfil, dashboard y estadísticas siempre muestran lo mismo sin riesgo de desincronización.
+
+### Las recompensas: gastar puntos con respaldo docente
+
+Las recompensas son beneficios académicos reales (exonerar un parcial, extender una entrega, limpiar una falta) que se compran con puntos. Funcionan así:
+
+1. El estudiante elige una recompensa y el **curso donde quiere usarla** (debe ser del periodo actual).
+2. El sistema valida que tenga puntos suficientes, que no supere el límite de usos y que no tenga ya una solicitud pendiente igual; luego **descuenta los puntos de inmediato** y deja la solicitud *pendiente*.
+3. Un docente de ese curso la **aprueba o la rechaza**: si la aprueba, el beneficio queda activo (con fecha de vencimiento, 30 días); si la rechaza, **los puntos se devuelven automáticamente**.
+
+### El catálogo: quién manda
+
+Hay una sola lista oficial de misiones e insignias. El seed la crea desde cero (borrando todo) y los comandos `db:sync-missions` / `db:sync-badges` la actualizan sin borrar el progreso: crean lo nuevo, actualizan lo cambiado y **eliminan lo obsoleto**. Así el catálogo puede evolucionar sin romper los puntos e insignias que los estudiantes ya ganaron.
+
+---
+
 ## Estructura del Proyecto
 
 ```text
 LevelUTB/
   .env / .env.example        # DATABASE_URL, NEXTAUTH_SECRET/URL (ver Instalación)
   next.config.ts / tsconfig.json / eslint.config.mjs / postcss.config.mjs / prisma.config.ts
-  public/utb-logotipo.png
-  scripts/                   # import-proa.ts, sync-badges.ts, badges.json
+  public/utblogotipo.png
+  scripts/                   # import-proa.ts, sync-missions.ts, sync-badges.ts, badges.json (catálogo canónico v2026.3)
   prisma/
-    schema.prisma            # 24 modelos
+    schema.prisma            # 25 modelos
     migrations/              # Migraciones SQL
-    seed.ts                  # Seed base: ISCO 2019 + insignias + usuarios demo
+    seed.ts                  # Seed base: ISCO 2019 + 13 misiones onboarding + 8 insignias + usuarios demo
     seed-if-empty.ts         # Seed condicional (solo si users está vacía)
   src/
     middleware.ts            # Guard de páginas -> /login
@@ -163,17 +200,23 @@ LevelUTB/
       login/ dashboard/ malla/ misiones/ logros/ recompensas/
       estadisticas/ notificaciones/ perfil/ docentes/ docentes/insignias/ perfil-docente/
       api/                   # Backend (ver docs/arc42.md §5)
+    application/             # Casos de uso y factorías (missions, rewards, academic)
+    domain/                  # Reglas puras (missions, rewards) + tests unitarios
+    infrastructure/          # Adaptadores Prisma (missions, rewards)
     components/
       layout/AppShell.tsx    # Oculta Sidebar/Header en /login
       layout/Sidebar.tsx / layout/Header.tsx  # Navegación por rol, logo y acciones
       providers/SessionProvider.tsx / providers/ThemeProvider.tsx
     lib/
       auth.ts / session.ts / prisma.ts
-      academic.ts (+ academic.test.ts)
+      academic.ts (+ academic.test.ts, academicAverage.test.ts)
       recommendations.ts / streak.ts / activity.ts
-      missionRules.ts (+ missionRules.test.ts) / missionVerification.ts
+      pointRules.ts (+ pointRules.test.ts) # Topes de puntos por misión
+      missionUi.ts (+ missionUi.test.ts) # Avisos de misión para la UI
       badgeSource.ts / getBadgeSource.ts # Origen del catálogo de insignias
-      period.ts              # Utilidad centralizada de períodos académicos
+      academicSource.ts / getAcademicSource.ts / httpAcademicSource.ts # Fuente académica efectiva (externa vs Prisma)
+      period.ts (+ period.test.ts) # Utilidad centralizada de períodos académicos
+  utb-external-api/        # API académica simulada (fixtures: seed.json académico, badges.json)
 ```
 
 Estructura detallada: `docs/arc42.md` (5 vista de bloques, 7 despliegue).
@@ -319,9 +362,9 @@ El email debe terminar en `@utb.edu.co` (validado en `src/lib/auth.ts`).
 
 | Rol | Email | Contraseña | Nombre / uso |
 |---|---|---|---|
-| STUDENT | demo@utb.edu.co | demo123 | Juan Pérez — 6to semestre, 95 créditos |
-| STUDENT | demo2@utb.edu.co | demo1234 | Sara Peña — 8vo semestre, 113 créditos |
-| STUDENT | demo3@utb.edu.co | demo1234 | Angela Lemus — 3er semestre, 60 créditos |
+| STUDENT | demo@utb.edu.co | demo123 | Juan Pérez — 6to semestre, 79 créditos, promedio 4.2 |
+| STUDENT | demo2@utb.edu.co | demo1234 | Sara Peña — 8vo semestre, 113 créditos, promedio 4.0 |
+| STUDENT | demo3@utb.edu.co | demo1234 | Angela Lemus — 3er semestre, 32 créditos, promedio 4.7 |
 | TEACHER | docente@utb.edu.co | demo123 | María González — cursos H01A, M01A, C02A y C04A |
 
 ## Comandos Disponibles
@@ -336,14 +379,18 @@ docker compose down -v         # Detiene y elimina el volumen PostgreSQL
 
 docker compose exec app npm run db:seed          # Seed destructivo
 docker compose exec app npm run db:seed-if-empty # Seed no destructivo
+docker compose exec app npm run db:sync-missions # Sincroniza las 13 misiones (con purga de obsoletas)
+docker compose exec app npm run db:sync-badges   # Sincroniza las 8 insignias (con purga de obsoletas)
 docker compose exec app npm run lint              # Lint dentro del contenedor
+npm run db:sync-badge-fixtures # Copia scripts/badges.json a utb-external-api (requiere rebuild)
+npm run test:unit              # Tests unitarios (dominio + lib)
 ```
 
 ---
 
-## Modelos de Base de Datos 
+## Modelo de Base de Datos (25)
 
-## Mejoras Recientes (Limpieza y Refactor)
+## Mejoras Recientes
 
 ### Limpieza de Código
 - **Dependencias eliminadas**: clsx y tailwind-merge (no utilizadas en el código)
@@ -367,12 +414,18 @@ docker compose exec app npm run lint              # Lint dentro del contenedor
 |---------|-----------|
 | npm run lint | ✅ PASS (0 errors, 0 warnings) |
 | npm run build | ✅ PASS (29 páginas generadas) |
-| npm run test:unit | ✅ PASS (25 tests) |
-| npm run prisma validate | ✅ PASS (schema válido) |
+| npm run test:unit | ✅ PASS (62 tests) |
+| npx prisma validate | ✅ PASS (schema válido) |
+
+### Coherencia académica y limpieza de seeds
+- **Seed de insignias unificado**: `prisma/seed.ts` siembra las 8 del catálogo canónico (`scripts/badges.json` v2026.3); `db:sync-badges` purga las fuera de catálogo.
+- **`sync-missions.ts` con purga**: `db:sync-missions` elimina misiones obsoletas antes del upsert (evita duplicar 13+13).
+- **`/api/stats` con fuente efectiva**: usa la misma fuente académica que perfil/malla (externa si `UNIVERSITY_API_ENABLED="true"`, Prisma como fallback).
+- **Datos demo coherentes**: Juan 79 créditos/promedio 4.2 (notas por semestre [4.2, 4.5, 3.9, 4.1, 4.4]), Sara 113/4.0, Angela 32/4.7; eliminadas filas duplicadas `C05A/C06A` en el fixture externo.
+- **Código muerto eliminado**: `src/lib/missionVerification.ts`, `src/lib/missionRules.ts`, `src/lib/rateLimit.ts`, `src/lib/emailProvider.ts` (+ tests) y DTOs sin uso (`missionDTO`, `rewardDTO`).
+- **Fix `COMPLETAR_3_MISIONES_SEMANA`**: cuenta `COMPLETADA + VERIFICADA` (antes solo `COMPLETADA`).
 
 ---
-
-## Modelo de Base de Datos (24)
 
 ### Usuarios y auth
 
@@ -390,7 +443,8 @@ docker compose exec app npm run lint              # Lint dentro del contenedor
 
 ### Gamificación
 
-- **Point**: `amount + source + description`.
+- **Point**: `amount + source + description`, `periodCode` (periodo `YYYY-1/2`), `referenceKey` único (idempotencia). Índice `(userId, periodCode)`.
+- **AcademicPeriod**: `{ code, startsAt, endsAt, status FUTURE/ACTIVE/EN_CIERRE/CLOSED, closedAt?, processedAt? }`.
 - **Mission**: `type, pointsReward, autoVerify + verificationKey/Value, courseId?, requiredLevel?, isActive, start/endDate`.
 - **StudentMission**: `status, progress 0-100, evidence, metadata JSON, verifiedBy/At, reviewComment`, único por estudiante+misión.
 - **Badge**: `category, iconUrl, requiredLevel?, pointsRequired?`.
@@ -400,7 +454,7 @@ docker compose exec app npm run lint              # Lint dentro del contenedor
 ### Recompensas
 
 - **Reward**: `name, icon, category EXAMEN/ASISTENCIA/ENTREGA/OTRO, cost, maxUses?, isActive`.
-- **StudentReward**: `{ studentId, rewardId }` único, `courseId` objetivo, `status SOLICITADO/APROBADO/RECHAZADO/EXPIRADO/USADO`, `pointsSpent, requestedAt, reviewedBy/At, reviewNote, evidence, expiresAt`.
+- **StudentReward**: `{ studentId, rewardId, courseId }` único, `status SOLICITADO/APROBADO/RECHAZADO/EXPIRADO/USADO`, `pointsSpent, requestedAt, reviewedBy/At, reviewNote, evidence, expiresAt`.
 
 ### Notificaciones, actividad, recomendaciones, riesgo
 
