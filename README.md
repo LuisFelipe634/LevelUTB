@@ -58,7 +58,7 @@ Next.js App Router (src/app/layout.tsx -> AppShell -> Sidebar/Header)
 | Soporte | `src/lib/` | `academic.ts` (promedio, semestre actual, tope créditos), `recommendations.ts`, `streak.ts`, `activity.ts` (`ACTIVITY_ACTIONS`, racha diaria), `getBadgeSource.ts` / `getAcademicSource.ts` (origen externo del catálogo y datos académicos), `period.ts` (períodos académicos centralizados), `pointRules.ts` (topes de puntos), `missionUi.ts` (avisos de misión). |
 | Persistencia | `src/lib/prisma.ts` | Singleton `PrismaClient` + `PrismaPg`. En dev se reutiliza vía `globalThis`. |
 | Modelo | `prisma/schema.prisma` | 25 modelos: usuarios, malla, progreso, gamificación, recompensas, notificaciones, riesgo. |
-| Datos | `prisma/seed.ts` | Seed base (programa ISCO 2019, 10 semestres, 55 cursos, 162 créditos, niveles, misiones, recompensas y usuarios demo). |
+| Datos | `prisma/seed.ts` | Seed base (programa ISCO 2019, 10 semestres, 55 cursos, 162 créditos, niveles, misiones, recompensas, 1 estudiante y 1 docente enlazados por `C09A`). |
 
 ### Catálogo de APIs
 
@@ -72,7 +72,7 @@ Next.js App Router (src/app/layout.tsx -> AppShell -> Sidebar/Header)
 | `/api/badges` | GET | STUDENT | Catálogo de insignias para el panel de tarjetas base y Plus. El origen se resuelve con `getBadgeSource()` y la respuesta incluye `origin{source, catalogVersion, degraded}`. |
 | `/api/notifications` | GET, PATCH, DELETE | ambos | Listar, marcar leída (`isRead`), borrar. Tipos: `INFO, WARNING, ALERTA_RIESGO, LOGRO_OBTENIDO, MISION_DISPONIBLE, RECORDATORIO, SOLICITUD_RECOMPENSA`. |
 | `/api/recommendations` | GET, PATCH | STUDENT | GET genera bajo demanda con `generateRecommendations()`. PATCH aceptar/descartar (`isAccepted`, `isRead`). |
-| `/api/teacher` | GET, PATCH | TEACHER | GET cuatro cursos demo asignados (`TeacherCourse` por `periodo YYYY-1/2`) + estudiantes con promedio/créditos/racha/riesgo e insignias con contador de progreso. PATCH revisar misión (aprobar/devolver con `reviewComment`, otorga puntos). |
+| `/api/teacher` | GET, PATCH | TEACHER | GET el curso demo asignado (`C09A`, vía `TeacherCourse` por `periodo YYYY-1/2`) + estudiantes con promedio/créditos/racha/riesgo e insignias con contador de progreso. PATCH revisar misión (aprobar/devolver con `reviewComment`, otorga puntos). |
 | `/api/teacher/rewards` | GET, PATCH | TEACHER | GET solicitudes de canje de sus cursos + historial. PATCH aprobar/rechazar (`APROBADO/RECHAZADO`, `reviewNote`). |
 | `/api/teacher/notify` | POST | TEACHER | `{ studentId, message/cursos }` envía notificación de ruta recomendada y guarda `Activity{RUTA_RECOMENDADA_DOCENTE}`. |
 
@@ -98,7 +98,7 @@ Detalle de flujos y cómo añadir endpoints: ver `src/app/api/README.md`.
 
 ### Docentes (`/docentes`, `/docentes/insignias`, `/perfil-docente`)
 
-- **Acompañamiento**: cuatro cursos asignados del periodo como bloques interactivos + estudiantes inscritos (promedio, créditos, racha, insignias, riesgo).
+- **Acompañamiento**: el curso asignado del periodo (`C09A`) como bloque interactivo + estudiantes inscritos en él (promedio, créditos, racha, insignias, riesgo).
 - **Insignias del curso**: `/docentes/insignias` resume las cuatro categorías y sus variantes Plus. Al expandir un estudiante se muestra cada insignia con el color de su categoría y un contador sencillo `1/1`.
 - **Verificación de misiones**: aprobar/devolver con comentario (otorga `Point{MISION_COMPLETADA}`).
 - **Recompensas**: aprobar/rechazar canjes de sus cursos.
@@ -191,7 +191,7 @@ LevelUTB/
   prisma/
     schema.prisma            # 25 modelos
     migrations/              # Migraciones SQL
-    seed.ts                  # Seed base: ISCO 2019 + 13 misiones onboarding + 8 insignias + usuarios demo
+    seed.ts                  # Seed base: ISCO 2019 + 13 misiones onboarding + 8 insignias + 1 estudiante y 1 docente
     seed-if-empty.ts         # Seed condicional (solo si users está vacía)
   src/
     middleware.ts            # Guard de páginas -> /login
@@ -380,14 +380,23 @@ Este comando detiene los contenedores y conserva el volumen de datos.
 
 ## Credenciales de Prueba (`npm run db:seed` → `prisma/seed.ts`)
 
+El seed crea **un solo estudiante y un solo docente**, enlazados por una única
+materia: `C09A Comunicaciones y Redes`. El estudiante está `CURSANDO` en esa
+materia en el periodo vigente y el docente la tiene asignada, así que cualquier
+canje de recompensa del estudiante le aparece al docente en `/docentes` para
+revisar. Ambas cuentas usan la contraseña `demo123`.
+
 El email debe terminar en `@utb.edu.co` (validado en `src/lib/auth.ts`).
 
 | Rol | Email | Contraseña | Nombre / uso |
 |---|---|---|---|
-| STUDENT | demo@utb.edu.co | demo123 | Juan Pérez — 6to semestre, 79 créditos, promedio 4.2 |
-| STUDENT | demo2@utb.edu.co | demo1234 | Sara Peña — 8vo semestre, 113 créditos, promedio 4.0 |
-| STUDENT | demo3@utb.edu.co | demo1234 | Angela Lemus — 3er semestre, 32 créditos, promedio 4.7 |
-| TEACHER | docente@utb.edu.co | demo123 | María González — cursos H01A, M01A, C02A y C04A |
+| STUDENT | demo@utb.edu.co | demo123 | Juan Pérez (`2019123456`) — 6to semestre, 79 créditos, promedio 4.2, nivel 3, 2000 puntos en el periodo. Matriculado en `C09A`. |
+| TEACHER | docente@utb.edu.co | demo123 | María González — Ingeniería de Sistemas, Facultad de Ingeniería. Asignada `C09A` en el periodo vigente. |
+
+Datos que quedan sembrados para el estudiante: historia de los semestres 1-5 en
+`APROBADO` y semestre 6 en `CURSANDO`, 5 de las 8 insignias del catálogo obtenidas
+y un saldo inicial de 2000 puntos (`PUNTOS_BASE_SEMESTRAL`) en el periodo
+vigente, para poder canjear recompensas sin esperar al cierre de un periodo.
 
 ## Comandos Disponibles
 
@@ -446,7 +455,7 @@ npm run test:unit              # Tests unitarios (dominio + lib)
 - **Seed de insignias unificado**: `prisma/seed.ts` siembra las 8 del catálogo canónico (`scripts/badges.json` v2026.3); `db:sync-badges` purga las fuera de catálogo.
 - **`sync-missions.ts` con purga**: `db:sync-missions` elimina misiones obsoletas antes del upsert (evita duplicar 13+13).
 - **`/api/stats` con fuente efectiva**: usa la misma fuente académica que perfil/malla (externa si `UNIVERSITY_API_ENABLED="true"`, Prisma como fallback).
-- **Datos demo coherentes**: Juan 79 créditos/promedio 4.2 (notas por semestre [4.2, 4.5, 3.9, 4.1, 4.4]), Sara 113/4.0, Angela 32/4.7; eliminadas filas duplicadas `C05A/C06A` en el fixture externo.
+- **Datos demo acotados a un flujo**: solo `demo@utb.edu.co` (Juan Pérez, `2019123456`, 79 créditos, promedio 4.2, notas por semestre [4.2, 4.5, 3.9, 4.1, 4.4]) y `docente@utb.edu.co` (María González). El vínculo es `C09A Comunicaciones y Redes`, cursada por el estudiante y asignada al docente en el periodo vigente; el seed falla con error si esa matrícula `CURSANDO` no existe. Se añadieron 2000 puntos iniciales para poder probar el canje de recompensas de punta a punta.
 - **Código muerto eliminado**: `src/lib/missionVerification.ts`, `src/lib/missionRules.ts`, `src/lib/rateLimit.ts`, `src/lib/emailProvider.ts` (+ tests) y DTOs sin uso (`missionDTO`, `rewardDTO`).
 - **Fix `COMPLETAR_3_MISIONES_SEMANA`**: cuenta `COMPLETADA + VERIFICADA` (antes solo `COMPLETADA`).
 
@@ -522,8 +531,8 @@ vacío porque es un dato faltante, no una caída del servicio.
 | `GET /academic/students/:studentCode/badges` | `{ studentCode, catalogVersion, issuer, total, earned, totalEarned, earnedBadges[], badges[] }` — catálogo con estado resuelto por estudiante |
 
 Los datos salen de `utb-external-api/src/fixtures/badges.json` (8 insignias del
-nuevo modelo: cuatro categorías base y cuatro variantes Plus, otorgadas para los
-tres estudiantes demo). Es una simulación: cuando exista el
+nuevo modelo: cuatro categorías base y cuatro variantes Plus, con parte de ellas
+otorgadas al estudiante demo `2019123456`). Es una simulación: cuando exista el
 servicio institucional real solo cambia la URL en `UNIVERSITY_API_URL` y el
 consumidor no se toca. `BadgeCategory` de la API externa es el mismo enum del
 modelo local (`PROGRESO`, `RENDIMIENTO`, `HABITO`, `COMPETENCIA`, `IMPACTO_SOCIAL`),

@@ -1,4 +1,4 @@
-import 'dotenv/config'
+﻿import 'dotenv/config'
 import { PrismaClient } from '@prisma/client'
 import { PrismaPg } from '@prisma/adapter-pg'
 import bcrypt from 'bcryptjs'
@@ -16,22 +16,24 @@ const currentMonth = new Date().getMonth()
 const currentSemester = currentMonth < 6 ? 1 : 2
 const CURRENT_PERIOD = `${new Date().getFullYear()}-${currentSemester}`
 
-// Semestres que cada estudiante demo tiene en curso; el resto de su historia
+// Semestre que el estudiante demo tiene en curso; el resto de su historia
 // academica queda en estado APROBADO.
 const DEMO_CURRENT_SEMESTER = 6
-const SARA_CURRENT_SEMESTER = 8
-const ANGELA_CURRENT_SEMESTER = 3
 
-// Las cuatro materias demo que comparte el docente con los estudiantes demo.
-const ASSIGNED_COURSE_CODES = ['H01A', 'M01A', 'C02A', 'C04A']
-
-// Unica materia del segundo docente, para comprobar el filtro por materia:
-// cualquier canje de otra materia no le debe aparecer.
-const SECOND_TEACHER_COURSE_CODE = 'C04A'
+// Unica materia del semestre en curso que se asigna al docente. Es el vinculo
+// unico estudiante <-> docente: el estudiante esta matriculado (CURSANDO) y el
+// docente la tiene asignada en el periodo actual, asi que todo canje de
+// recompensa le aparece al docente para revisar.
+const ASSIGNED_COURSE_CODE = 'C09A'
 
 // Notas fijas para la historia demo (no aleatorias): el seed queda reproducible
 // y el mismo en cada `db:reset`.
 const DEMO_HISTORY_GRADES = [4.2, 4.5, 3.9, 4.1, 4.4, 4.0]
+
+// Saldo inicial del estudiante demo. Los puntos solo se otorgan al cerrar un
+// periodo o al verificar misiones, asi que sin esto el canje de recompensas
+// (la recompensa mas barata cuesta 500) no se puede probar de inmediato.
+const DEMO_INITIAL_POINTS = 2000
 
 type CourseType = 'OBLIGATORIO' | 'ELECTIVA' | 'LIBRE_ELECCION' | 'GENERAL'
 type RewardCategory = 'EXAMEN' | 'ASISTENCIA' | 'ENTREGA' | 'OTRO'
@@ -50,7 +52,6 @@ type StudentSeed = {
   totalCredits: number
   averageGrade: number
   level: number
-  logMessage: string
 }
 type RewardSeed = {
   name: string
@@ -69,7 +70,6 @@ type MissionSeed = {
   verificationKey?: string
   verificationValue?: string
 }
-type StudentProfileRef = { id: string }
 
 // El codigo no existe en el schema (Badge no lo tiene): se usa solo como llave
 // interna del seed para resolver el awarding de las ya obtenidas.
@@ -158,7 +158,7 @@ const BADGES_DATA: BadgeSeed[] = [
   },
 ]
 
-// Insignias ya obtenidas por cada estudiante demo, por studentCode. Se dejan
+// Insignias ya obtenidas por el estudiante demo, por studentCode. Se dejan
 // bloqueadas algunas a proposito para que /logros muestre ambos estados.
 // Catalogo canonico: scripts/badges.json v2026.3 (8 insignias).
 const AWARDED_BADGES_BY_STUDENT: Record<string, Array<{ code: string; daysAgo: number; evidence: string | null }>> = {
@@ -168,16 +168,6 @@ const AWARDED_BADGES_BY_STUDENT: Record<string, Array<{ code: string; daysAgo: n
     { code: 'UTB-PS-01', daysAgo: 176, evidence: 'Habilidades de crecimiento personal demostradas.' },
     { code: 'UTB-LU-01', daysAgo: 134, evidence: 'Participacion en la comunidad UTB.' },
     { code: 'UTB-CP-01', daysAgo: 113, evidence: 'Conexion profesional registrada.' },
-  ],
-  '2020123456': [
-    { code: 'UTB-CS-01', daysAgo: 231, evidence: 'Competencias fundamentales desarrolladas.' },
-    { code: 'UTB-PS-01', daysAgo: 184, evidence: 'Habilidades de crecimiento personal demostradas.' },
-    { code: 'UTB-PS-PLUS-01', daysAgo: 123, evidence: 'Nivel avanzado de habilidades personales.' },
-    { code: 'UTB-LU-01', daysAgo: 86, evidence: 'Liderazgo en actividad institucional.' },
-  ],
-  '2021123456': [
-    { code: 'UTB-CS-01', daysAgo: 209, evidence: 'Competencias fundamentales desarrolladas.' },
-    { code: 'UTB-CP-01', daysAgo: 140, evidence: 'Conexion profesional registrada.' },
   ],
 }
 
@@ -381,8 +371,11 @@ const MISSIONS_DATA: MissionSeed[] = [
   { title: 'Planifica tu semestre', description: 'Consulta asignaturas, prerrequisitos y recomendaciones.', type: 'PLANIFICACION', pointsReward: 40, autoVerify: true },
 ]
 
-// El orden de escritura importa: el upsert de la historia de Angela al final
-// actualiza la matricula de C04A en el periodo actual que crea el bloque docente.
+// Unico estudiante y unico docente: el estudiante esta matriculado (CURSANDO) en
+// ASSIGNED_COURSE_CODE durante el periodo actual y esa misma materia queda
+// asignada al docente, de modo que /docentes lo lista y le muestra sus solicitudes.
+// El orden de escritura importa: las insignias se resuelven por studentCode y la
+// materia del docente se filtra por la matricula que crea el historial del estudiante.
 async function main() {
   await cleanDatabase()
   await seedAcademicPeriods()
@@ -391,9 +384,8 @@ async function main() {
   await createCatalog()
 
   const passwordHash = await bcrypt.hash('demo123', 10)
-  const secondPasswordHash = await bcrypt.hash('demo1234', 10)
 
-  const juan = await createStudent(program.id, passwordHash, {
+  const student = await createStudent(program.id, passwordHash, {
     email: 'demo@utb.edu.co',
     name: 'Juan Pérez',
     studentCode: '2019123456',
@@ -402,70 +394,39 @@ async function main() {
     totalCredits: 79,
     averageGrade: 4.2,
     level: 3,
-    logMessage: '✅ Usuario demo creado:',
   })
-  await seedDemoHistory(juan.profileId, program.id)
+  await seedStudentHistory(student.profileId, program.id)
+  await seedInitialPoints(student.userId)
 
-  const sara = await createStudent(program.id, secondPasswordHash, {
-    email: 'demo2@utb.edu.co',
-    name: 'Sara Peña',
-    studentCode: '2020123456',
-    currentSemester: SARA_CURRENT_SEMESTER,
-    admissionYear: 2019,
-    totalCredits: 113,
-    averageGrade: 4.0,
-    level: 5,
-    logMessage: '✅ Segundo estudiante creado:',
-  })
-  await seedSecondStudentHistory(sara.profileId, program.id)
-
-  const angela = await createStudent(program.id, secondPasswordHash, {
-    email: 'demo3@utb.edu.co',
-    name: 'Angela Lemus',
-    studentCode: '2021123456',
-    currentSemester: ANGELA_CURRENT_SEMESTER,
-    admissionYear: 2021,
-    totalCredits: 32,
-    averageGrade: 4.7,
-    level: 4,
-    logMessage: '✅ Estudiante Angela Lemus creada:',
-  })
-  await seedThirdStudentHistory(angela.profileId, program.id)
-
-  // Las insignias se siembran al final: el awarding se resuelve por studentCode,
-  // asi que los tres perfiles de arriba ya tienen que existir.
+  // Las insignias se siembran despues de crear el perfil: el awarding se
+  // resuelve por studentCode.
   await seedBadges()
-
-  // Primero se enlazan las cuatro matrículas demo para que las asignaciones del
-  // profesor coincidan exactamente con los cursos de sus estudiantes.
-  await linkCurrentEnrollments({
-    juan: { id: juan.profileId },
-    sara: { id: sara.profileId },
-    angela: { id: angela.profileId },
-  })
 
   const currentCourses = await findCurrentCourses()
 
-  const teacher = await createTeacherUser(passwordHash, {
+  await createTeacherUser(passwordHash, {
     email: 'docente@utb.edu.co',
     name: 'María González',
     profession: 'Ingeniera de Sistemas',
-    logMessage: '✅ Usuario docente creado:',
   })
-  await assignTeacherCourses(teacher.profileId, currentCourses)
+  await assignTeacherCourses(currentCourses)
+}
 
-  // Segundo docente con una sola materia, para probar que un docente que NO tiene
-  // asignada la materia del canje no lo ve en su lista de pendientes.
-  const secondTeacher = await createTeacherUser(passwordHash, {
-    email: 'docente2@utb.edu.co',
-    name: 'Carlos Ramírez',
-    profession: 'Ingeniero de Sistemas',
-    logMessage: '✅ Segundo docente creado:',
+// Saldo inicial del periodo vigente, para poder probar el canje de recompensas
+// sin esperar al cierre de un periodo. `referenceKey` fija la idempotencia.
+async function seedInitialPoints(userId: string) {
+  await prisma.point.create({
+    data: {
+      userId,
+      amount: DEMO_INITIAL_POINTS,
+      source: 'PUNTOS_BASE_SEMESTRAL',
+      periodCode: CURRENT_PERIOD,
+      referenceKey: `SEED_SALDO_INICIAL:${userId}:${CURRENT_PERIOD}`,
+      description: 'Saldo inicial del periodo para pruebas',
+    },
   })
-  await assignTeacherCourses(
-    secondTeacher.profileId,
-    currentCourses.filter((course) => course.code === SECOND_TEACHER_COURSE_CODE)
-  )
+
+  console.log(`✅ Saldo inicial del estudiante: ${DEMO_INITIAL_POINTS} puntos (${CURRENT_PERIOD})`)
 }
 
 async function cleanDatabase() {
@@ -606,7 +567,7 @@ async function seedBadges() {
     }
   }
   await Promise.all(awardPromises)
-  console.log('✅ Insignias obtenidas por los estudiantes demo')
+  console.log('✅ Insignias obtenidas por el estudiante demo')
 }
 
 async function createStudent(programId: string, passwordHash: string, student: StudentSeed) {
@@ -631,11 +592,11 @@ async function createStudent(programId: string, passwordHash: string, student: S
     include: { studentProfile: true },
   })
 
-  console.log(student.logMessage, user.email)
-  return { email: user.email, profileId: requireProfile(user.studentProfile, user.email).id }
+  console.log('✅ Estudiante demo creado:', user.email)
+  return { email: user.email, userId: user.id, profileId: requireProfile(user.studentProfile, user.email).id }
 }
 
-async function seedDemoHistory(studentId: string, programId: string) {
+async function seedStudentHistory(studentId: string, programId: string) {
   const courses = await prisma.course.findMany({
     where: { programId },
     include: { semester: true },
@@ -663,39 +624,12 @@ async function seedDemoHistory(studentId: string, programId: string) {
     })
 
   await Promise.all(enrollmentPromises)
-  console.log('✅ Inscripciones del usuario demo creadas')
-}
-
-async function seedSecondStudentHistory(studentId: string, programId: string) {
-  const courses = await prisma.course.findMany({
-    where: { programId },
-    include: { semester: true },
-    orderBy: { semester: { number: 'asc' } },
-  })
-
-  const enrollmentPromises = courses
-    .filter((course) => course.semester.number <= SARA_CURRENT_SEMESTER)
-    .map((course) => {
-      const semesterNumber = course.semester.number
-      const isApproved = semesterNumber < SARA_CURRENT_SEMESTER
-      return prisma.enrollment.create({
-        data: {
-          studentId,
-          courseId: course.id,
-          semesterCode: isApproved ? `${2018 + semesterNumber}-1` : CURRENT_PERIOD,
-          status: isApproved ? 'APROBADO' : 'CURSANDO',
-          grade: isApproved ? 4.0 : null,
-        },
-      })
-    })
-
-  await Promise.all(enrollmentPromises)
-  console.log('✅ Sara Peña configurada: semestres 1-7 aprobados y semestre 8 en curso')
+  console.log(`✅ Inscripciones del estudiante demo creadas (semestres 1-${DEMO_CURRENT_SEMESTER - 1} aprobados, ${DEMO_CURRENT_SEMESTER} en curso)`)
 }
 
 async function createTeacherUser(
   passwordHash: string,
-  teacher: { email: string; name: string; profession: string; logMessage: string },
+  teacher: { email: string; name: string; profession: string },
 ) {
   const user = await prisma.user.create({
     data: {
@@ -716,7 +650,7 @@ async function createTeacherUser(
     include: { teacherProfile: true },
   })
 
-  console.log(teacher.logMessage, user.email)
+  console.log('✅ Docente demo creado:', user.email)
   return { email: user.email, profileId: requireProfile(user.teacherProfile, user.email).id }
 }
 
@@ -725,102 +659,43 @@ async function createTeacherUser(
  * actual). Es el conjunto que /api/rewards ofrece para canjear, así que el que el
  * docente necesita tener asignado para ver las solicitudes.
  */
-function findCurrentCourses() {
-  return prisma.course.findMany({
+async function findCurrentCourses() {
+  const courses = await prisma.course.findMany({
     where: {
-      code: { in: ASSIGNED_COURSE_CODES },
+      code: ASSIGNED_COURSE_CODE,
       enrollments: {
         some: { status: 'CURSANDO', source: 'UNIVERSITY', semesterCode: CURRENT_PERIOD },
       },
     },
-    select: { id: true, code: true },
-    orderBy: { code: 'asc' },
+    select: { id: true, code: true, name: true },
   })
+
+  // Falla ruidosamente en vez de dejar al docente sin materia: sin el vinculo
+  // estudiante <-> docente el flujo de canje no se puede probar.
+  if (courses.length === 0) {
+    throw new Error(
+      `${ASSIGNED_COURSE_CODE} no tiene matricula CURSANDO en ${CURRENT_PERIOD}: el docente quedaria sin materia asignada`,
+    )
+  }
+
+  return courses
 }
 
-async function assignTeacherCourses(teacherId: string, courses: Array<{ id: string }>) {
+async function assignTeacherCourses(courses: Array<{ id: string; code: string; name: string }>) {
+  const teacher = await prisma.teacherProfile.findFirstOrThrow()
+
   await Promise.all(
     courses.map((course) =>
       prisma.teacherCourse.create({
-        data: { teacherId, courseId: course.id, period: CURRENT_PERIOD },
+        data: { teacherId: teacher.id, courseId: course.id, period: CURRENT_PERIOD },
       })
     )
   )
 
-  console.log(`✅ Materias vigentes asignadas al docente: ${courses.length}`)
+  console.log(
+    `✅ Materia vigente asignada al docente: ${courses.map((course) => `${course.code} ${course.name}`).join(', ')}`,
+  )
   return courses
-}
-
-// Matrícula vigente y distribuida por curso (solo CURSANDO en periodo actual).
-// Cada estudiante queda ligado a una o dos materias, para que el filtro por
-// materia sea visible.
-async function linkCurrentEnrollments(
-  students: { juan: StudentProfileRef; sara: StudentProfileRef; angela: StudentProfileRef },
-) {
-  const { juan, sara, angela } = students
-  const assignedCourses = await prisma.course.findMany({
-    where: { code: { in: ASSIGNED_COURSE_CODES } },
-    select: { id: true, code: true },
-    orderBy: { code: 'asc' },
-  })
-  const courseByCode = new Map(assignedCourses.map((course) => [course.code, course]))
-  const enrollmentsByCourse: Array<{ code: string; student: StudentProfileRef | null }> = [
-    { code: 'H01A', student: juan }, // H01A -> Juan Pérez
-    { code: 'M01A', student: sara }, // M01A -> Sara Peña
-    { code: 'C04A', student: angela }, // C04A -> Angela Lemus, tercer semestre
-    // Juan Pérez también en C02A para probar que un estudiante puede estar en más de una materia pero no en todas
-    { code: 'C02A', student: juan },
-  ]
-
-  await Promise.all(
-    enrollmentsByCourse
-      .filter(({ student }) => student)
-      .map(({ code, student }) => {
-        const course = courseByCode.get(code)
-        if (!course) return Promise.resolve()
-        return enrollIfMissing(student!.id, course.id, 'CURSANDO')
-      })
-  )
-}
-
-async function enrollIfMissing(
-  studentId: string,
-  courseId: string,
-  status: 'CURSANDO' | 'APROBADO',
-  grade: number | null = null,
-) {
-  const existing = await prisma.enrollment.findFirst({
-    where: { studentId, courseId, semesterCode: CURRENT_PERIOD },
-  })
-  if (existing) return
-
-  await prisma.enrollment.create({
-    data: { studentId, courseId, semesterCode: CURRENT_PERIOD, status, grade },
-  })
-}
-
-// Historia completa de Angela: semestres 1 y 2 aprobados, semestre 3 en curso.
-async function seedThirdStudentHistory(studentId: string, programId: string) {
-  const courses = await prisma.course.findMany({
-    where: { programId, semester: { number: { in: [1, 2, ANGELA_CURRENT_SEMESTER] } } },
-    include: { semester: true },
-    orderBy: [{ semester: { number: 'asc' } }, { code: 'asc' }],
-  })
-
-  await Promise.all(
-    courses.map((course) => {
-      const isApproved = course.semester.number < ANGELA_CURRENT_SEMESTER
-      const semesterCode = isApproved ? `${2024 + course.semester.number}-1` : CURRENT_PERIOD
-      const status = isApproved ? 'APROBADO' : 'CURSANDO'
-      const grade = isApproved ? 4.7 : null
-
-      return prisma.enrollment.upsert({
-        where: { studentId_courseId_semesterCode: { studentId, courseId: course.id, semesterCode } },
-        update: { status, grade, source: 'UNIVERSITY' },
-        create: { studentId, courseId: course.id, semesterCode, status, grade, source: 'UNIVERSITY' },
-      })
-    })
-  )
 }
 
 main()

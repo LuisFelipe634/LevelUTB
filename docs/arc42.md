@@ -260,7 +260,7 @@ flowchart LR
 | Operaciones de DB | `docker compose exec app npm run db:push`, `db:seed` o `db:studio`; todos los comandos se ejecutan dentro del contenedor |
 | Instalación nueva | Docker: `cp .env.example .env` + `docker compose up --build -d`; no se requiere Node.js ni PostgreSQL en el host |
 | Choke point despliegue | Un PostgreSQL local en el 5432 choca con el puerto publicado del contenedor. Detenerlo o remapear el puerto en `docker-compose.yml` |
-| Credenciales seed | `demo@utb.edu.co/demo123` (Juan Pérez), `demo2@utb.edu.co/demo1234` (Sara Peña), `demo3@utb.edu.co/demo1234` (Angela Lemus), `docente@utb.edu.co/demo123` (María González con H01A, M01A, C02A y C04A) |
+| Credenciales seed | Un solo estudiante y un solo docente: `demo@utb.edu.co/demo123` (Juan Pérez, `2019123456`, matriculado en `C09A` en el periodo vigente) y `docente@utb.edu.co/demo123` (María González, con `C09A` asignada) |
 
 ---
 
@@ -357,7 +357,7 @@ flowchart LR
 | `middleware` solo verifica existencia de cookie | No valida firma/expiración; confía en que cada API revalida | `middleware.ts:25-28`, `config.matcher` excluye `/api` | Mantener regla "cada ruta revalida"; evaluar `auth()` en middleware/proxy |
 | Periodo `YYYY-1/2` duplicado con `getMonth()<6` | Desfase con calendario UTB real; 6 implementaciones divergentes | `missionVerification.ts:14`, `recommendations.ts:177`, `stats/rewards/curriculum/student route.ts`, `seed.ts:13` | Centralizar en `src/lib/period.ts` + tabla `AcademicPeriod` |
 | Doble fuente académica `AcademicRecord` vs `Enrollment` | `AcademicRecord` usa `courseCode` string sin FK; `getAverageGrade` prioriza historial y puede divergir de `Enrollment` | `schema.prisma:226-241`, `academic.ts:63-70` | Definir fuente canónica (PROA→`Enrollment UNIVERSITY`) y deprecar/mapear `AcademicRecord` |
-| Seed demo inconsistente | El correo de Angela no correspondía al alias de demostración | `prisma/seed.ts`, `utb-external-api/src/fixtures/seed.json` | Resuelto con `demo3@utb.edu.co` |
+| Seed demo con datos de más | Tres estudiantes y dos docentes demo no permitían probar de punta a punta el flujo estudiante ↔ docente | `prisma/seed.ts` | Resuelto: solo `demo@utb.edu.co` y `docente@utb.edu.co`, enlazados por `C09A` (matrícula `CURSANDO` + `TeacherCourse` del periodo) |
 | Typo `RUTA_ACademica` fosilizado | Enum + código + migración histórica con mayúscula intermedia | `schema.prisma:452`, `recommendations.ts:5,158`, `migrations/..._add_rewards/migration.sql:35` | Migración de rename `RUTA_ACademica→RUTA_ACADEMICA` + alias temporal |
 | Cobertura solo unitaria de `lib` | Sin tests de `request-code/verify-code`, canje, `curriculum`, `teacher`; regresiones silenciosas | `test:unit` solo `src/lib/**/*.test.ts` | Añadir tests de integración API (OTP, JIT, canje `maxUses`, `MANUAL`) |
 | 6 warnings `npm run lint` | `<img>` en `Sidebar`, vars sin uso en `Header` | Salida `npm run lint` | Migrar a `next/image`, limpiar `Header.tsx` |
