@@ -8,6 +8,10 @@ Plataforma gamificada para el seguimiento del avance académico de estudiantes d
 
 Sistema web donde el estudiante visualiza su progreso en la malla curricular, gana puntos e insignias, canjea recompensas académicas por puntos y recibe recomendaciones personalizadas. El docente acompaña a sus estudiantes por curso, verifica misiones con evidencia, aprueba canjes de recompensas y envía rutas recomendadas.
 
+> **Prototipo**: el acceso es solo con las dos cuentas de demostración que crea
+> el seed. No hay alta de cuentas ni registro de estudiantes, así que un correo
+> institucional real todavía no permite iniciar sesión.
+
 ---
 
 ## Stack Tecnológico
@@ -35,7 +39,7 @@ Navegador (Client Components en src/app/*/page.tsx)
   v
 Next.js App Router (src/app/layout.tsx -> AppShell -> Sidebar/Header)
   |-- middleware.ts: redirige a /login si no hay cookie authjs.session-token
-  |-- NextAuth: login con dominio @utb.edu.co + bcrypt (src/lib/auth.ts)
+  |-- NextAuth: login con correo y contrasena, dominio validado + bcrypt (src/lib/auth.ts)
   `-- /api/*: endpoints por rol STUDENT / TEACHER
        |
        v
@@ -50,8 +54,8 @@ Next.js App Router (src/app/layout.tsx -> AppShell -> Sidebar/Header)
 | Capa | Ubicación | Responsabilidad |
 |---|---|---|
 | Guard global | `src/middleware.ts` | Deja pasar `/login`, `/api/auth`, estáticos; si no hay cookie de sesión redirige a `/login?callbackUrl=...`. Cada API además valida JSON. |
-| Sesión/roles | `src/lib/auth.ts`, `src/lib/session.ts` | `auth()`, `requireRole("STUDENT"\|"TEACHER")`, `jsonUnauthorized`, `jsonForbidden`. Login solo `@utb.edu.co`. |
-| Rutas HTTP | `src/app/api/**/route.ts` | Validan entrada, rol y responden JSON. Ver `src/app/api/README.md`. |
+| Sesión/roles | `src/lib/auth.ts`, `src/lib/session.ts` | `auth()`, `requireRole("STUDENT"\|"TEACHER")`, `jsonUnauthorized`, `jsonForbidden`. El login valida el dominio institucional, pero solo hay cuentas creadas por el seed. |
+| Rutas HTTP | `src/app/api/**/route.ts` | Validan entrada, rol y responden JSON. |
 | Aplicación | `src/application/` | Casos de uso + factorías (`missionFactory`, `rewardFactory`) y DTOs. Orquesta dominio e infraestructura. |
 | Dominio | `src/domain/` | Reglas puras: `missions/missionRules.ts` + `missionVerificationService.ts`, `rewards/rewardRules.ts`, tipos y puertos (repositorios). |
 | Infraestructura | `src/infrastructure/` | Adaptadores Prisma (`prismaMissionRepository`, `prismaRewardRepository`). |
@@ -64,9 +68,9 @@ Next.js App Router (src/app/layout.tsx -> AppShell -> Sidebar/Header)
 
 | Endpoint | Métodos | Rol | Función |
 |---|---|---|---|
-| `/api/auth/[...nextauth]` | GET, POST | público | Login/logout NextAuth Credentials. |
-| `/api/curriculum` | GET, POST | STUDENT | GET malla por semestre con estado (aprobado/en curso/bloqueado/disponible), prerrequisitos y créditos. POST selección de cursos del periodo. |
-| `/api/stats` | GET | STUDENT | Usa la misma fuente académica efectiva que perfil/malla (externa si `UNIVERSITY_API_ENABLED="true"`, Prisma como fallback): créditos aprobados/totales, promedio (`academic.ts`), avance por semestre y categoría, puntos/nivel, tendencia e insignias obtenidas. |
+| `/api/auth/[...nextauth]` | GET, POST | público | Login/logout NextAuth Credentials. No hay endpoint de alta de cuentas. |
+| `/api/curriculum` | GET | STUDENT | GET malla por semestre con estado (aprobado/en curso/bloqueado/disponible), prerrequisitos y créditos. |
+| `/api/stats` | GET | STUDENT | Lee la malla y el historial por la fuente académica externa (`getAcademicSource()`) y el resto desde PostgreSQL: créditos aprobados/totales, promedio (`academic.ts`), avance por semestre y categoría, puntos/nivel, tendencia e insignias obtenidas. |
 | `/api/missions` | GET, POST | STUDENT | GET disponibles (por `level`) + estado del estudiante. POST crear/avanzar con `evidence`; si `autoVerify` usa `domain/missionVerificationService.ts` (vía `prismaMissionRepository`), si no queda `EN_REVISION`. El catálogo actual son 13 misiones de onboarding (`PLANIFICACION`/`ACADEMICO`), todas `autoVerify` sin `verificationKey`. |
 | `/api/rewards` | GET, POST | STUDENT | GET catálogo activo + puntos totales + canjes + cursos del periodo actual para elegir `courseId`. POST solicitar canje `{ rewardId, courseId }` (descuenta puntos, estado `SOLICITADO`). |
 | `/api/badges` | GET | STUDENT | Catálogo de insignias para el panel de tarjetas base y Plus. El origen se resuelve con `getBadgeSource()` y la respuesta incluye `origin{source, catalogVersion, degraded}`. |
@@ -78,7 +82,7 @@ Next.js App Router (src/app/layout.tsx -> AppShell -> Sidebar/Header)
 
 Errores estándar: `401 { error: "No autorizado" }` sin sesión, `403` rol incorrecto, `404` perfil/recurso no encontrado.
 
-Detalle de flujos y cómo añadir endpoints: ver `src/app/api/README.md`.
+Detalle de flujos, secuencias de runtime y decisiones: ver `docs/arc42.md`, secciones 6 y 9.
 
 ---
 
@@ -87,7 +91,7 @@ Detalle de flujos y cómo añadir endpoints: ver `src/app/api/README.md`.
 ### Estudiantes (`/dashboard`, `/malla`, `/misiones`, `/logros`, `/recompensas`, `/estadisticas`, `/notificaciones`, `/perfil`)
 
 - **Dashboard**: puntos, nivel, racha, misiones activas, insignias recientes, notificaciones y alertas.
-- **Malla interactiva**: por semestre con estado por prerrequisitos, créditos aprobados vs totales y selección de materias del periodo.
+- **Malla interactiva**: por semestre con estado por prerrequisitos y créditos aprobados vs totales. Es de solo lectura: la selección de materias del periodo no está implementada.
 - **Misiones**: tipos `ACADEMICO, PLANIFICACION, MEJORA_CONTINUA, HABITO_ESTUDIO, IMPACTO_SOCIAL`. El catálogo actual trae 13 misiones de onboarding (`PLANIFICACION`/`ACADEMICO`, todas `autoVerify`); las manuales con evidencia quedan `EN_REVISION` para el docente y el motor de verificación vive en `src/domain/missions/missionVerificationService.ts`. Estados: `PENDIENTE → EN_PROGRESO → EN_REVISION → COMPLETADA/VERIFICADA/RECHAZADA`.
 - **Insignias**: panel visual con tarjetas de Core Skills, Power Skills, Líderes UTB y Conexiones Profesionales, incluyendo sus variantes Plus. El catálogo se sirve desde la API externa.
 - **Recompensas**: canje de puntos por bonificaciones (`EXAMEN, ASISTENCIA, ENTREGA, OTRO`) atadas a un `courseId` del periodo actual. Flujo `SOLICITADO → APROBADO/RECHAZADO → USADO/EXPIRADO`. Página `/recompensas`.
@@ -199,7 +203,7 @@ LevelUTB/
       layout.tsx / globals.css / page.tsx (-> /dashboard) / favicon.ico
       login/ dashboard/ malla/ misiones/ logros/ recompensas/
       estadisticas/ notificaciones/ perfil/ docentes/ docentes/insignias/ perfil-docente/
-      api/                   # Backend (ver docs/arc42.md §5)
+      api/                   # Backend (ver docs/arc42.md, sección 5)
     application/             # Casos de uso y factorías (missions, rewards, academic)
     domain/                  # Reglas puras (missions, rewards) + tests unitarios
     infrastructure/          # Adaptadores Prisma (missions, rewards)
@@ -380,13 +384,19 @@ Este comando detiene los contenedores y conserva el volumen de datos.
 
 ## Credenciales de Prueba (`npm run db:seed` → `prisma/seed.ts`)
 
+Estas son las únicas cuentas que existen en el sistema.
+
 El seed crea **un solo estudiante y un solo docente**, enlazados por una única
 materia: `C09A Comunicaciones y Redes`. El estudiante está `CURSANDO` en esa
 materia en el periodo vigente y el docente la tiene asignada, así que cualquier
 canje de recompensa del estudiante le aparece al docente en `/docentes` para
 revisar. Ambas cuentas usan la contraseña `demo123`.
 
-El email debe terminar en `@utb.edu.co` (validado en `src/lib/auth.ts`).
+El email debe pertenecer al dominio institucional (validado en `src/lib/auth.ts`).
+
+> **Estas son las únicas cuentas que existen.** El prototipo no tiene alta de
+> cuentas ni registro de estudiantes: un correo institucional real no sirve para
+> iniciar sesión hasta que exista ese flujo.
 
 | Rol | Email | Contraseña | Nombre / uso |
 |---|---|---|---|
@@ -424,46 +434,9 @@ npm run test:unit              # Tests unitarios (dominio + lib)
 
 ## Modelo de Base de Datos (25)
 
-## Mejoras Recientes
-
-### Limpieza de Código
-- **Dependencias eliminadas**: clsx y tailwind-merge (no utilizadas en el código)
-- **Documentación redundante eliminada**: src/app/README.md y src/app/api/README.md (contenido consolidado en README.md y docs/arc42.md)
-- **Comentarios narrativos eliminados** en ~15 archivos (src/lib/*, src/app/api/**/route.ts) — se conservan solo decisiones arquitectónicas, reglas de negocio no evidentes y advertencias técnicas
-
-### Centralización de Lógica Duplicada
-- **Nuevo módulo**: src/lib/period.ts — utilidad centralizada para manejo de períodos académicos
-- **Funciones exportadas**: getCurrentPeriod(), parsePeriod(), getNextPeriod(), getPreviousPeriod(), getSemesterFromPeriod(), getYearFromPeriod(), isCurrentPeriod()\r
-- **7 ocurrencias duplicadas eliminadas** de getMonth() < 6 / getCurrentPeriod() en:
-  - src/lib/missionVerification.ts\r
-  - src/app/api/student/route.ts\r
-  - src/app/api/curriculum/route.ts\r
-  - src/app/api/stats/route.ts\r
-  - src/application/rewards/rewardFactory.ts\r
-  - src/domain/rewards/rewardRules.ts\r
-  - src/lib/recommendations.ts\r
-
-### Validación Post-Limpieza
-| Comando | Resultado |
-|---------|-----------|
-| npm run lint | ✅ PASS (0 errors, 0 warnings) |
-| npm run build | ✅ PASS (29 páginas generadas) |
-| npm run test:unit | ✅ PASS (62 tests) |
-| npx prisma validate | ✅ PASS (schema válido) |
-
-### Coherencia académica y limpieza de seeds
-- **Seed de insignias unificado**: `prisma/seed.ts` siembra las 8 del catálogo canónico (`scripts/badges.json` v2026.3); `db:sync-badges` purga las fuera de catálogo.
-- **`sync-missions.ts` con purga**: `db:sync-missions` elimina misiones obsoletas antes del upsert (evita duplicar 13+13).
-- **`/api/stats` con fuente efectiva**: usa la misma fuente académica que perfil/malla (externa si `UNIVERSITY_API_ENABLED="true"`, Prisma como fallback).
-- **Datos demo acotados a un flujo**: solo `demo@utb.edu.co` (Juan Pérez, `2019123456`, 79 créditos, promedio 4.2, notas por semestre [4.2, 4.5, 3.9, 4.1, 4.4]) y `docente@utb.edu.co` (María González). El vínculo es `C09A Comunicaciones y Redes`, cursada por el estudiante y asignada al docente en el periodo vigente; el seed falla con error si esa matrícula `CURSANDO` no existe. Se añadieron 2000 puntos iniciales para poder probar el canje de recompensas de punta a punta.
-- **Código muerto eliminado**: `src/lib/missionVerification.ts`, `src/lib/missionRules.ts`, `src/lib/rateLimit.ts`, `src/lib/emailProvider.ts` (+ tests) y DTOs sin uso (`missionDTO`, `rewardDTO`).
-- **Fix `COMPLETAR_3_MISIONES_SEMANA`**: cuenta `COMPLETADA + VERIFICADA` (antes solo `COMPLETADA`).
-
----
-
 ### Usuarios y auth
 
-- **User**: email institucional único, nombre, `passwordHash` (bcrypt), rol `STUDENT/TEACHER/ADMIN`.
+- **User**: email institucional único, nombre, `passwordHash` (bcrypt), rol `STUDENT/TEACHER/ADMIN`. Hoy solo lo crea el seed.
 - **StudentProfile**: `studentCode`, `programId`, `currentSemester`, `totalCredits`, `averageGrade`, `level`.
 - **TeacherProfile**: departamento, facultad, profesión, cargo, `isActive`.
 
@@ -494,16 +467,46 @@ npm run test:unit              # Tests unitarios (dominio + lib)
 
 - **Notification**: `title, message, type, isRead, link?`.
 - **Activity**: `{ action, details Json? }`, acciones en `ACTIVITY_ACTIONS` (`LOGIN, PAGE_VIEW, ACADEMIC_DAILY_ACTIVITY, RUTA_RECOMENDADA_DOCENTE...`) para rachas.
-- **Recommendation**: `type CURSO_SUGERIDO/RUTA_ACademica/ALERTA_ATRASO/MEJORA_PROMEDIO/ELECTIVA_RECOMENDADA/RELLENAR_CREDITOS, priority 1=alta 2=media 3=baja, isRead, isAccepted?`.
+- **Recommendation**: `type CURSO_SUGERIDO/RUTA_ACADEMICA/ALERTA_ATRASO/MEJORA_PROMEDIO/ELECTIVA_RECOMENDADA/RELLENAR_CREDITOS, priority 1=alta 2=media 3=baja, isRead, isAccepted?`.
 - **RiskAlert**: `type + severity BAJA/MEDIA/ALTA/CRITICA, courseId?, isResolved?`.
+
+---
+
+## Mejoras Recientes
+
+### Limpieza de Código
+- **Dependencias eliminadas**: clsx y tailwind-merge (no utilizadas en el código)
+- **Documentación redundante eliminada**: src/app/README.md y src/app/api/README.md (contenido consolidado en README.md y docs/arc42.md)
+- **Comentarios narrativos eliminados** en ~15 archivos (src/lib/*, src/app/api/**/route.ts) — se conservan solo decisiones arquitectónicas, reglas de negocio no evidentes y advertencias técnicas
+
+### Centralización de Lógica Duplicada
+- **Nuevo módulo**: src/lib/period.ts — utilidad centralizada para manejo de períodos académicos
+- **Funciones exportadas**: getCurrentPeriod(), parsePeriod(), getNextPeriod(), getPreviousPeriod(), getSemesterFromPeriod(), getYearFromPeriod(), isCurrentPeriod()
+- **Ocurrencias duplicadas eliminadas** de `getMonth() < 6` / `getCurrentPeriod()` en las rutas de `student`, `curriculum`, `stats`, `rewardFactory`, `rewardRules` y `recommendations`, que ahora importan de `src/lib/period.ts`
+
+### Validación
+| Comando | Resultado |
+|---------|-----------|
+| npm run lint | ✅ PASS (0 errores, 0 advertencias) |
+| npm run test:unit | ✅ PASS (62 pruebas) |
+| npx prisma validate | ✅ PASS (esquema válido) |
+
+### Coherencia académica y limpieza de seeds
+- **Seed de insignias unificado**: `prisma/seed.ts` siembra las 8 del catálogo canónico (`scripts/badges.json` v2026.3); `db:sync-badges` purga las fuera de catálogo.
+- **`sync-missions.ts` con purga**: `db:sync-missions` elimina misiones obsoletas antes del upsert (evita duplicar 13+13).
+- **`/api/stats` con fuente efectiva**: usa la misma fuente académica que perfil/malla (externa si `UNIVERSITY_API_ENABLED="true"`, Prisma como fallback).
+- **Datos demo acotados a un flujo**: solo `demo@utb.edu.co` (Juan Pérez, `2019123456`, 79 créditos, promedio 4.2, notas por semestre [4.2, 4.5, 3.9, 4.1, 4.4]) y `docente@utb.edu.co` (María González). El vínculo es `C09A Comunicaciones y Redes`, cursada por el estudiante y asignada al docente en el periodo vigente; el seed falla con error si esa matrícula `CURSANDO` no existe. Se añadieron 2000 puntos iniciales para poder probar el canje de recompensas de punta a punta.
+- **Código muerto eliminado**: `src/lib/missionVerification.ts`, `src/lib/missionRules.ts`, `src/lib/rateLimit.ts`, `src/lib/emailProvider.ts` (+ tests) y DTOs sin uso (`missionDTO`, `rewardDTO`).
+- **Fix `COMPLETAR_3_MISIONES_SEMANA`**: cuenta `COMPLETADA + VERIFICADA` (antes solo `COMPLETADA`).
 
 ---
 
 ## Seguridad
 
-- (`src/lib/auth.ts` authorize), bcrypt, JWT.
+- `src/lib/auth.ts` valida el dominio institucional con regex exacta y compara la contraseña con bcrypt; la sesión es un JWT que lleva `id` y `role`. Ojo: hoy no hay alta de cuentas, así que solo pueden entrar los usuarios del seed.
 - `src/middleware.ts` protege páginas; cada API revalida con `requireRole` (no confiar solo en el middleware, cuyo `matcher` excluye `/api`).
 - Validación de entrada y 401/403/404 JSON en todos los endpoints.
+- `.env` no se versiona; `setup.sh` genera los secretos en tiempo de instalación y el `Dockerfile` copia solo directorios de código, sin llaves ni datos de estudiantes.
 
 ---
 
@@ -540,6 +543,17 @@ porque `/logros` filtra por esa taxonomía.
 
 ---
 
+## Documentación
+
+| Documento | Contenido |
+|---|---|
+| [`docs/README.md`](docs/README.md) | Índice de la documentación del proyecto. |
+| [`docs/arc42.md`](docs/arc42.md) | Arquitectura en 12 secciones: vistas de bloques y runtime, despliegue, decisiones, riesgos y supuestos abiertos con la institución. |
+| [`docs/IA.md`](docs/IA.md) | Declaración de uso de inteligencia artificial. |
+
+---
+
 ## Licencia
 
-Proyecto académico - Universidad Tecnológica de Bolívar.
+Proyecto académico - Universidad Tecnológica de Bolívar, asignatura Proyecto de
+Ingeniería 2. Ver [`LICENSE`](LICENSE).
