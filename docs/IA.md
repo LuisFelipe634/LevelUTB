@@ -2,7 +2,7 @@
 
 Proyecto: **LevelUTB** — Plataforma gamificada de seguimiento del avance
 académico.
-Asignatura: **Proyecto de Ingeniería 2**, Universidad Tecnológica de Bolívar.
+Asignatura: **Proyecto de Ingeniería**, Universidad Tecnológica de Bolívar.
 
 ## Herramientas empleadas
 
