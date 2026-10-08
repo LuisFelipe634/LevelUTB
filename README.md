@@ -166,7 +166,7 @@ El sistema también soporta misiones **manuales** para el futuro: el estudiante 
 
 Cada punto guarda *de dónde vino* (`MISION_COMPLETADA`, `PUNTOS_BASE_SEMESTRAL`, `CANJE_RECOMPENSA`…). Los de misión llevan además una **llave única por estudiante, misión y periodo**: si el estudiante reintenta o hay un error de red, el sistema detecta la llave repetida y no duplica puntos.
 
-Para que nadie acumule todo de una vez, hay **topes**: 300 puntos de misión por semana y 1500 por periodo. Pasado el tope, el sistema simplemente no otorga más hasta el siguiente ciclo.
+Para que nadie acumule todo de una vez, hay **topes**: 300 puntos de misión por semana y 5000 por periodo. Pasado el tope, el sistema simplemente no otorga más hasta el siguiente ciclo.
 
 Además de las misiones, al cerrar cada semestre el estudiante recibe **puntos base (100) más 20 por cada crédito aprobado** (tope 300). El **nivel** (Novato → Leyenda) no se guarda: se recalcula en cada consulta a partir de los puntos reales, así que perfil, dashboard y estadísticas siempre muestran lo mismo sin riesgo de desincronización.
 
@@ -249,7 +249,7 @@ No necesitas Node.js, npm ni PostgreSQL: los contenedores ya los traen.
 | Puertos libres `3000`, `3001` y `5432` | App, API académica y PostgreSQL | Si otro programa los ocupa, detenlo antes de instalar |
 
 Notas por sistema:
-- **Windows:** instala Git desde <https://git-scm.com/downloads> (incluye Git Bash) y Docker Desktop desde <https://www.docker.com/products/docker-desktop/> con el backend WSL 2 activado. Ejecuta `./setup.sh` desde **Git Bash**, no desde PowerShell.
+- **Windows:** instala Git (incluye Git Bash) y Docker Desktop con el backend WSL 2 activado. Ejecuta `./setup.sh` desde **Git Bash**, no desde PowerShell.
 - **macOS / Linux:** instala Docker Desktop (o Engine + Compose) y Git con tu gestor de paquetes. Ejecuta `./setup.sh` desde tu terminal habitual.
 
 #### 2. Descargar el proyecto
@@ -555,5 +555,4 @@ porque `/logros` filtra por esa taxonomía.
 
 ## Licencia
 
-Proyecto académico - Universidad Tecnológica de Bolívar, asignatura Proyecto de
-Ingeniería 2. Ver [`LICENSE`](LICENSE).
+Proyecto académico - Universidad Tecnológica de Bolívar, asignatura Proyecto de Ingeniería.

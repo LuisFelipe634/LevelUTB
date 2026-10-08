@@ -2,7 +2,7 @@ export const DEFAULT_BASE_POINTS = 100
 export const DEFAULT_POINTS_PER_CREDIT = 20
 export const DEFAULT_ACADEMIC_POINTS_CAP = 300
 export const DEFAULT_WEEKLY_MISSION_CAP = 300
-export const DEFAULT_PERIOD_MISSION_CAP = 1500
+export const DEFAULT_PERIOD_MISSION_CAP = 5000
 
 export function calculateAcademicPoints(
   approvedCredits: number,

@@ -30,7 +30,7 @@ test("buildPointReference creates a deterministic idempotency key", () => {
 test("canAwardMissionPoints enforces weekly and period caps", () => {
   assert.equal(canAwardMissionPoints(50, 250, 900), true)
   assert.equal(canAwardMissionPoints(60, 250, 900), false)
-  assert.equal(canAwardMissionPoints(50, 0, 1480), false)
+  assert.equal(canAwardMissionPoints(50, 0, 4960), false)
 })
 
 test("calculateAcademicPoints tolera entradas inválidas y aplica floor", () => {
@@ -64,5 +64,5 @@ test("canAwardMissionPoints rechaza montos inválidos y acumulados negativos", (
   assert.equal(canAwardMissionPoints(10, -1, 0), false)
   assert.equal(canAwardMissionPoints(10, 0, -1), false)
   // borde exacto del cap sí permite
-  assert.equal(canAwardMissionPoints(50, 250, 1450), true)
+  assert.equal(canAwardMissionPoints(50, 250, 4950), true)
 })
